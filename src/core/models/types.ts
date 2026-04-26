@@ -1,4 +1,5 @@
 import { TaskType } from '../../types';
+import { config } from '../config';
 
 export enum ModelCapability {
   CLASSIFICATION = 'classification',
@@ -59,7 +60,7 @@ export interface ModelCostTracker {
 export const MODEL_DEFINITIONS: Record<string, ModelDefinition> = {
   heavy: {
     id: 'heavy',
-    model: 'kr/claude-sonnet-4.5',
+    model: config.models.heavy,
     maxOutputTokens: 8192,
     latencyProfile: 'moderate',
     capabilities: [
@@ -73,7 +74,7 @@ export const MODEL_DEFINITIONS: Record<string, ModelDefinition> = {
   },
   fast: {
     id: 'fast',
-    model: 'kr/claude-haiku-4.5',
+    model: config.models.fast,
     maxOutputTokens: 4096,
     latencyProfile: 'fast',
     capabilities: [
@@ -87,7 +88,7 @@ export const MODEL_DEFINITIONS: Record<string, ModelDefinition> = {
   },
   general: {
     id: 'general',
-    model: 'kr/glm-5',
+    model: config.models.general,
     maxOutputTokens: 4096,
     latencyProfile: 'instant',
     capabilities: [
@@ -101,7 +102,7 @@ export const MODEL_DEFINITIONS: Record<string, ModelDefinition> = {
   },
   coder: {
     id: 'coder',
-    model: 'kr/qwen3-coder-next',
+    model: config.models.coder,
     maxOutputTokens: 8192,
     latencyProfile: 'fast',
     capabilities: [
@@ -115,7 +116,7 @@ export const MODEL_DEFINITIONS: Record<string, ModelDefinition> = {
   },
   analyst: {
     id: 'analyst',
-    model: 'kr/deepseek-3.2',
+    model: config.models.analyst,
     maxOutputTokens: 4096,
     latencyProfile: 'fast',
     capabilities: [

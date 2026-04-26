@@ -15,7 +15,7 @@ export class CompressionEngine {
     this.fileCache = new Map();
   }
 
-  compressGraphNeighborhood(neighborhood: NeighborhoodResult): CompressedContext {
+  async compressGraphNeighborhood(neighborhood: NeighborhoodResult): Promise<CompressedContext> {
     const sections: string[] = ['<context>'];
     let totalTokens = 0;
     let rawTokenEstimate = 0;
@@ -45,7 +45,7 @@ export class CompressionEngine {
 
       for (const node of nodes) {
         const needsSource = compressionLevel >= CompressionLevel.PARTIAL;
-        const sourceContent = needsSource ? this.readFile(node.file) : undefined;
+        const sourceContent = needsSource ? await this.readFile(node.file) : undefined;
 
         const compressed = this.astCompressor.compress(node, compressionLevel, sourceContent);
         const tokens = this.astCompressor.estimateTokens(compressed);
@@ -77,9 +77,9 @@ export class CompressionEngine {
     };
   }
 
-  compressSingle(node: SCGNode, level: CompressionLevel): string {
+  async compressSingle(node: SCGNode, level: CompressionLevel): Promise<string> {
     const sourceContent = level === CompressionLevel.FULL || level === CompressionLevel.PARTIAL
-      ? this.readFile(node.file)
+      ? await this.readFile(node.file)
       : undefined;
 
     return this.astCompressor.compress(node, level, sourceContent);
@@ -102,26 +102,28 @@ export class CompressionEngine {
     this.fileCache.clear();
   }
 
-  private readFile(filePath: string): string | undefined {
-    if (this.fileCache.has(filePath)) {
-      return this.fileCache.get(filePath);
+  private readFile(filePath: string): Promise<string | undefined> {
+    const cached = this.fileCache.get(filePath);
+    if (cached !== undefined) {
+      return Promise.resolve(cached);
     }
 
-    try {
-      const content = fs.readFileSync(filePath, 'utf-8');
-      this.fileCache.set(filePath, content);
+    return fs.promises.readFile(filePath, 'utf-8')
+      .then(content => {
+        this.fileCache.set(filePath, content);
 
-      if (this.fileCache.size > MAX_FILE_CACHE_SIZE) {
-        const firstKey = this.fileCache.keys().next().value;
-        if (firstKey !== undefined) {
-          this.fileCache.delete(firstKey);
+        if (this.fileCache.size > MAX_FILE_CACHE_SIZE) {
+          const firstKey = this.fileCache.keys().next().value;
+          if (firstKey !== undefined) {
+            this.fileCache.delete(firstKey);
+          }
         }
-      }
 
-      return content;
-    } catch {
-      logger.debug(`[Compressor] Cannot read file: ${filePath}`);
-      return undefined;
-    }
+        return content;
+      })
+      .catch(() => {
+        logger.debug(`[Compressor] Cannot read file: ${filePath}`);
+        return undefined;
+      });
   }
 }

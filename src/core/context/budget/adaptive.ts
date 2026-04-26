@@ -1,10 +1,10 @@
 import { CompressionLevel, SCGNode } from '../../../types';
 import { TokenBudgetManager } from './token-budget';
-import { ASTCompressor } from '../compression/ast-compress';
 import logger from '../../logger';
 
 const MAX_FEEDBACK_HISTORY = 20;
 const EXPANSION_FAILURE_THRESHOLD = 2;
+const RECENT_WINDOW = 5;
 
 export interface ContextFeedback {
   wasSufficient: boolean;
@@ -14,22 +14,40 @@ export interface ContextFeedback {
 
 export class AdaptiveWindow {
   private budgetManager: TokenBudgetManager;
-  private compressor: ASTCompressor;
   private feedbackHistory: ContextFeedback[];
   private currentExpansionLevel: number;
 
   constructor(budgetManager: TokenBudgetManager) {
     this.budgetManager = budgetManager;
-    this.compressor = new ASTCompressor();
     this.feedbackHistory = [];
     this.currentExpansionLevel = 0;
+  }
+
+  private estimateTokensForLevel(node: SCGNode, level: CompressionLevel): number {
+    switch (level) {
+      case CompressionLevel.SIGNATURE: {
+        const typePrefix = node.type === 'function' ? 'fn' :
+                           node.type === 'class' ? 'class' : 'symbol';
+        const text = `${typePrefix} ${node.name}${node.signature.includes('(') ? node.signature.substring(node.name.length) : ''}`;
+        return Math.ceil(text.length / 3.5);
+      }
+      case CompressionLevel.SUMMARY: {
+        const summary = node.summary || `${node.type} defined at ${node.file}:${node.line}`;
+        return Math.ceil(summary.length / 3.5);
+      }
+      case CompressionLevel.PARTIAL:
+      case CompressionLevel.FULL:
+        return Math.ceil(node.signature.length / 3.5) * 3;
+      default:
+        return Math.ceil(node.signature.length / 3.5);
+    }
   }
 
   adjustCompression(nodes: SCGNode[], baseBudget: number): Array<{ node: SCGNode; level: CompressionLevel }> {
     const adjusted: Array<{ node: SCGNode; level: CompressionLevel }> = [];
     let remainingBudget = baseBudget;
 
-    const recentFailures = this.feedbackHistory
+    const recentFailures = this.feedbackHistory.slice(-RECENT_WINDOW)
       .filter(f => !f.wasSufficient)
       .length;
 
@@ -49,19 +67,12 @@ export class AdaptiveWindow {
           : CompressionLevel.SUMMARY;
       }
 
-      const estimated = this.compressor.estimateTokens(
-        this.compressor.compress(node, level)
-      );
-
+      const estimated = this.estimateTokensForLevel(node, level);
       if (remainingBudget - estimated < 0) {
         level = CompressionLevel.SIGNATURE;
       }
 
-      const finalEstimate = this.compressor.estimateTokens(
-        this.compressor.compress(node, level)
-      );
-
-      remainingBudget -= finalEstimate;
+      remainingBudget -= this.estimateTokensForLevel(node, level);
       adjusted.push({ node, level });
     }
 

@@ -46,6 +46,8 @@ export class EmbeddingGenerator {
     const cacheKey = this.hashText(text);
     const cached = this.cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+      this.cache.delete(cacheKey);
+      this.cache.set(cacheKey, cached);
       return cached.embedding;
     }
 
@@ -83,6 +85,8 @@ export class EmbeddingGenerator {
       const key = this.hashText(texts[i]);
       const cached = this.cache.get(key);
       if (cached && Date.now() - cached.timestamp < this.cacheTTL) {
+        this.cache.delete(key);
+        this.cache.set(key, cached);
         results[i] = cached.embedding;
       } else {
         uncached.push({ index: i, text: texts[i], key });

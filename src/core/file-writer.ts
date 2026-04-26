@@ -25,7 +25,7 @@ export class FileWriter {
   async applyChanges(changes: CodeChange[]): Promise<WriteResult[]> {
     const results: WriteResult[] = [];
 
-    this.ensureBackupDir();
+    await this.ensureBackupDir();
 
     for (const change of changes) {
       if (!change.approved) {
@@ -78,15 +78,20 @@ export class FileWriter {
 
   private async createFile(filePath: string, content: string): Promise<WriteResult> {
     const dir = path.dirname(filePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+    try {
+      await fs.promises.access(dir);
+    } catch {
+      await fs.promises.mkdir(dir, { recursive: true });
     }
 
-    if (fs.existsSync(filePath)) {
+    try {
+      await fs.promises.access(filePath);
       return this.modifyFile(filePath, content);
+    } catch {
+      // File doesn't exist, proceed to create
     }
 
-    fs.writeFileSync(filePath, content, 'utf-8');
+    await fs.promises.writeFile(filePath, content, 'utf-8');
     logger.info(`[FileWriter] Created: ${path.relative(this.cwd, filePath)}`);
 
     return {
@@ -97,13 +102,15 @@ export class FileWriter {
   }
 
   private async modifyFile(filePath: string, content: string): Promise<WriteResult> {
-    if (!fs.existsSync(filePath)) {
+    try {
+      await fs.promises.access(filePath);
+    } catch {
       return this.createFile(filePath, content);
     }
 
     const backupPath = await this.backup(filePath);
 
-    fs.writeFileSync(filePath, content, 'utf-8');
+    await fs.promises.writeFile(filePath, content, 'utf-8');
     logger.info(`[FileWriter] Modified: ${path.relative(this.cwd, filePath)}`);
 
     return {
@@ -115,7 +122,9 @@ export class FileWriter {
   }
 
   private async deleteFile(filePath: string): Promise<WriteResult> {
-    if (!fs.existsSync(filePath)) {
+    try {
+      await fs.promises.access(filePath);
+    } catch {
       return {
         file: filePath,
         success: false,
@@ -126,7 +135,7 @@ export class FileWriter {
 
     const backupPath = await this.backup(filePath);
 
-    fs.unlinkSync(filePath);
+    await fs.promises.unlink(filePath);
     logger.info(`[FileWriter] Deleted: ${path.relative(this.cwd, filePath)}`);
 
     return {
@@ -140,21 +149,28 @@ export class FileWriter {
   async restoreBackup(filePath: string): Promise<boolean> {
     const backupPath = this.getBackupPath(filePath);
 
-    if (!fs.existsSync(backupPath)) {
+    try {
+      await fs.promises.access(backupPath);
+    } catch {
       logger.warn(`[FileWriter] No backup found for ${filePath}`);
       return false;
     }
 
-    fs.copyFileSync(backupPath, filePath);
+    await fs.promises.copyFile(backupPath, filePath);
     logger.info(`[FileWriter] Restored: ${path.relative(this.cwd, filePath)}`);
     return true;
   }
 
   async restoreAllBackups(results: WriteResult[]): Promise<void> {
     for (const result of results) {
-      if (result.backupPath && fs.existsSync(result.backupPath)) {
-        fs.copyFileSync(result.backupPath, result.file);
-        logger.info(`[FileWriter] Restored backup: ${path.relative(this.cwd, result.file)}`);
+      if (result.backupPath) {
+        try {
+          await fs.promises.access(result.backupPath);
+          await fs.promises.copyFile(result.backupPath, result.file);
+          logger.info(`[FileWriter] Restored backup: ${path.relative(this.cwd, result.file)}`);
+        } catch {
+          // Backup not found, skip
+        }
       }
     }
   }
@@ -163,11 +179,13 @@ export class FileWriter {
     const backupPath = this.getBackupPath(filePath);
     const backupFileDir = path.dirname(backupPath);
 
-    if (!fs.existsSync(backupFileDir)) {
-      fs.mkdirSync(backupFileDir, { recursive: true });
+    try {
+      await fs.promises.access(backupFileDir);
+    } catch {
+      await fs.promises.mkdir(backupFileDir, { recursive: true });
     }
 
-    fs.copyFileSync(filePath, backupPath);
+    await fs.promises.copyFile(filePath, backupPath);
     return backupPath;
   }
 
@@ -179,9 +197,11 @@ export class FileWriter {
     return path.join(this.backupDir, dir, `${basename}.${timestamp}.bak`);
   }
 
-  private ensureBackupDir(): void {
-    if (!fs.existsSync(this.backupDir)) {
-      fs.mkdirSync(this.backupDir, { recursive: true });
+  private async ensureBackupDir(): Promise<void> {
+    try {
+      await fs.promises.access(this.backupDir);
+    } catch {
+      await fs.promises.mkdir(this.backupDir, { recursive: true });
     }
   }
 

@@ -11,6 +11,7 @@ import { VectorStore } from '../store/vector-store';
 import { EmbeddingGenerator } from '../store/embeddings';
 import { UnifiedClient } from '../models/unified-client';
 import { EventBus, EventType } from '../event-bus';
+import { config } from '../config';
 import logger from '../logger';
 
 const MAX_LAZY_SUMMARY_NODES = 15;
@@ -52,7 +53,16 @@ export class ContextEngine {
   async initialize(directory: string): Promise<void> {
     this.eventBus.emit(EventType.CONTEXT_ASSEMBLING, { directory }, 'ContextEngine');
 
-    this.graph = await this.graphBuilder.buildGraph(directory);
+    const cachePath = SemanticGraphBuilder.getCachePath(directory);
+    const cached = this.graphBuilder.deserialize(cachePath, directory);
+
+    if (cached) {
+      this.graph = cached;
+    } else {
+      this.graph = await this.graphBuilder.buildGraph(directory);
+      this.graphBuilder.serialize(this.graph, cachePath);
+    }
+
     this.traversal = new GraphTraversal(this.graph);
 
     await this.vectorStore.initialize();
@@ -87,10 +97,12 @@ export class ContextEngine {
       });
     }
 
+    const scgDepth = config.context?.scgDepth ?? 3;
+
     const neighborhood = this.traversal.getTaskNeighborhood(
       seedNodes.map(n => n.id),
       codeBudget,
-      3
+      scgDepth
     );
 
     if (this.adaptiveWindow.shouldExpand()) {
@@ -110,7 +122,7 @@ export class ContextEngine {
       }
     }
 
-    const compressed = this.compressionEngine.compressGraphNeighborhood(neighborhood);
+    const compressed = await this.compressionEngine.compressGraphNeighborhood(neighborhood);
 
     const relevantPatterns = this.patternStore.findPatterns(task);
     const patternContext = this.patternStore.formatForContext(relevantPatterns);

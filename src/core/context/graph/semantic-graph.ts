@@ -74,7 +74,7 @@ export class SemanticGraphBuilder {
         const language = LANGUAGE_MAP[ext];
         if (!language || !this.parsers.has(language)) continue;
 
-        const content = fs.readFileSync(filePath, 'utf-8');
+        const content = await fs.promises.readFile(filePath, 'utf-8');
         const parser = this.parsers.get(language)!;
         const tree = parser.parse(content);
 
@@ -264,9 +264,10 @@ export class SemanticGraphBuilder {
 
   private extractEdges(rootNode: Parser.SyntaxNode, filePath: string, fileNodes: SCGNode[]): SCGEdge[] {
     const edges: SCGEdge[] = [];
+    const astIndex = this.buildAstIndex(rootNode);
 
     for (const node of fileNodes) {
-      const parentMap = this.findRelationships(rootNode, node, filePath);
+      const parentMap = this.findRelationshipsWithIndex(astIndex, node, filePath);
       for (const [targetName, edgeType] of parentMap) {
         edges.push({
           from: node.id,
@@ -280,14 +281,47 @@ export class SemanticGraphBuilder {
     return edges.filter(e => e.from !== e.to);
   }
 
-  private findRelationships(
-    rootNode: Parser.SyntaxNode,
+  private buildAstIndex(root: Parser.SyntaxNode): Map<string, Parser.SyntaxNode> {
+    const index = new Map<string, Parser.SyntaxNode>();
+    const stack: Parser.SyntaxNode[] = [root];
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+
+      if (
+        current.type === 'function_declaration' ||
+        current.type === 'function_definition' ||
+        current.type === 'method_definition' ||
+        current.type === 'arrow_function' ||
+        current.type === 'class_declaration' ||
+        current.type === 'class_definition' ||
+        current.type === 'interface_declaration' ||
+        current.type === 'type_alias_declaration'
+      ) {
+        const nameNode = current.childForFieldName('name');
+        if (nameNode) {
+          const key = `${nameNode.text}::${current.startPosition.row}`;
+          index.set(key, current);
+        }
+      }
+
+      for (const child of current.children) {
+        stack.push(child);
+      }
+    }
+
+    return index;
+  }
+
+  private findRelationshipsWithIndex(
+    astIndex: Map<string, Parser.SyntaxNode>,
     node: SCGNode,
     _filePath: string
   ): Array<[string, EdgeType]> {
     const relationships: Array<[string, EdgeType]> = [];
 
-    const astNode = this.findAstNode(rootNode, node.name, node.line - 1);
+    const key = `${node.name}::${node.line - 1}`;
+    const astNode = astIndex.get(key);
     if (!astNode) return relationships;
 
     if (node.type === NodeType.CLASS) {
@@ -297,37 +331,6 @@ export class SemanticGraphBuilder {
     }
 
     return relationships;
-  }
-
-  private findAstNode(root: Parser.SyntaxNode, name: string, line: number): Parser.SyntaxNode | null {
-    const stack: Parser.SyntaxNode[] = [root];
-
-    while (stack.length > 0) {
-      const current = stack.pop()!;
-
-      if (
-        (current.type === 'function_declaration' ||
-          current.type === 'function_definition' ||
-          current.type === 'method_definition' ||
-          current.type === 'arrow_function' ||
-          current.type === 'class_declaration' ||
-          current.type === 'class_definition' ||
-          current.type === 'interface_declaration' ||
-          current.type === 'type_alias_declaration') &&
-        current.startPosition.row === line
-      ) {
-        const nameNode = current.childForFieldName('name');
-        if (nameNode && nameNode.text === name) {
-          return current;
-        }
-      }
-
-      for (const child of current.children) {
-        stack.push(child);
-      }
-    }
-
-    return null;
   }
 
   private extractClassRelationships(
@@ -462,5 +465,88 @@ export class SemanticGraphBuilder {
 
   private generateNodeId(file: string, name: string, line: number): string {
     return `${file}::${name}::${line}`;
+  }
+
+  serialize(graph: SemanticCodeGraphData, cachePath: string): void {
+    try {
+      const dir = path.dirname(cachePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      const data = {
+        nodes: Array.from(graph.nodes.entries()),
+        edges: graph.edges,
+        dependencies: Array.from(graph.dependencies.entries()),
+        builtAt: graph.builtAt.toISOString(),
+        fileCount: graph.fileCount,
+        symbolCount: graph.symbolCount,
+      };
+
+      fs.writeFileSync(cachePath, JSON.stringify(data));
+      logger.info(`[SCG] Cached graph to ${cachePath}`);
+    } catch (error) {
+      logger.debug(`[SCG] Failed to serialize graph: ${error}`);
+    }
+  }
+
+  deserialize(cachePath: string, directory: string): SemanticCodeGraphData | null {
+    try {
+      if (!fs.existsSync(cachePath)) return null;
+
+      const raw = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+
+      const nodes = new Map<string, SCGNode>(raw.nodes);
+      const dependencies = new Map<string, string[]>(raw.dependencies);
+
+      const staleNodes: string[] = [];
+      for (const [id, node] of nodes) {
+        const fullPath = path.isAbsolute(node.file) ? node.file : path.resolve(directory, node.file);
+        if (!fs.existsSync(fullPath)) {
+          staleNodes.push(id);
+          continue;
+        }
+        try {
+          const stat = fs.statSync(fullPath);
+          if (stat.mtimeMs > new Date(raw.builtAt).getTime()) {
+            staleNodes.push(id);
+          }
+        } catch {
+          staleNodes.push(id);
+        }
+      }
+
+      if (staleNodes.length > nodes.size * 0.2) {
+        logger.info(`[SCG] Cache stale (${staleNodes.length}/${nodes.size} nodes changed), rebuilding`);
+        return null;
+      }
+
+      for (const id of staleNodes) {
+        nodes.delete(id);
+      }
+
+      const filteredEdges = raw.edges.filter(
+        (e: SCGEdge) => nodes.has(e.from) && nodes.has(e.to)
+      );
+
+      const graph: SemanticCodeGraphData = {
+        nodes,
+        edges: filteredEdges,
+        dependencies,
+        builtAt: new Date(raw.builtAt),
+        fileCount: raw.fileCount,
+        symbolCount: nodes.size,
+      };
+
+      logger.info(`[SCG] Loaded cached graph: ${nodes.size} nodes, ${filteredEdges.length} edges (${staleNodes.length} stale pruned)`);
+      return graph;
+    } catch (error) {
+      logger.debug(`[SCG] Failed to deserialize graph: ${error}`);
+      return null;
+    }
+  }
+
+  static getCachePath(directory: string): string {
+    return path.join(directory, '.nexus', 'graph.json');
   }
 }

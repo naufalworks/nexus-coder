@@ -65,15 +65,13 @@ export class VectorStore {
     if (!this.initialized || !this.client) return;
 
     try {
-      if (!entry.embedding) {
-        entry.embedding = await this.embeddingGenerator.generate(entry.content);
-      }
+      const embedding = entry.embedding ?? await this.embeddingGenerator.generate(entry.content);
 
       await this.client.upsert(COLLECTION_NAME, {
         points: [
           {
             id: entry.id,
-            vector: entry.embedding,
+            vector: embedding,
             payload: {
               content: entry.content.substring(0, 10000),
               relevance: entry.relevance,

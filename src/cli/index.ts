@@ -47,44 +47,41 @@ async function getServices(): Promise<NexusServices> {
   const registry = new AgentRegistry();
   const planner = new Planner(client);
 
+  const contextAgent = new ContextAgent(contextEngine, eventBus);
+  const coderAgent = new CoderAgent(client, modelRouter, eventBus);
+  const reviewerAgent = new ReviewerAgent(client, eventBus);
+  const gitAgent = new GitAgent(gitManager, client, eventBus);
+
   registry.register({
     name: 'context',
     capabilities: [AgentCapability.CONTEXT_RETRIEVAL],
     supportedTaskTypes: [TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR, TaskType.UNKNOWN],
-    execute: async (instruction, context, classification) => {
-      const agent = new ContextAgent(contextEngine, eventBus);
-      return agent.execute(instruction, context, classification);
-    },
+    execute: (instruction, context, classification) =>
+      contextAgent.execute(instruction, context, classification),
   });
 
   registry.register({
     name: 'coder',
     capabilities: [AgentCapability.CODE_GENERATION, AgentCapability.CODE_ANALYSIS],
     supportedTaskTypes: [TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR, TaskType.TEST, TaskType.UNKNOWN],
-    execute: async (instruction, context, classification) => {
-      const agent = new CoderAgent(client, modelRouter, eventBus);
-      return agent.execute(instruction, context, classification);
-    },
+    execute: (instruction, context, classification) =>
+      coderAgent.execute(instruction, context, classification),
   });
 
   registry.register({
     name: 'reviewer',
     capabilities: [AgentCapability.CODE_REVIEW],
     supportedTaskTypes: [TaskType.REVIEW, TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR],
-    execute: async (instruction, context, classification) => {
-      const agent = new ReviewerAgent(client, eventBus);
-      return agent.execute(instruction, context, classification);
-    },
+    execute: (instruction, context, classification) =>
+      reviewerAgent.execute(instruction, context, classification),
   });
 
   registry.register({
     name: 'git',
     capabilities: [AgentCapability.GIT_OPERATIONS],
     supportedTaskTypes: [TaskType.CONFIGURATION, TaskType.UNKNOWN],
-    execute: async (instruction, _context, _classification) => {
-      const agent = new GitAgent(gitManager, client, eventBus);
-      return agent.execute(instruction, _context);
-    },
+    execute: (instruction, _context, _classification) =>
+      gitAgent.execute(instruction, _context),
   });
 
   const orchestrator = new DynamicOrchestrator(
@@ -213,5 +210,21 @@ program
       console.error(chalk.red(`Status failed: ${error}`));
     }
   });
+
+const gracefulShutdown = async (signal: string) => {
+  logger.info(`[Nexus] Received ${signal}, shutting down gracefully...`);
+  if (services) {
+    try {
+      await services.contextEngine.save();
+      logger.info('[Nexus] State saved successfully');
+    } catch (error) {
+      logger.error(`[Nexus] Failed to save state: ${error}`);
+    }
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 program.parse();

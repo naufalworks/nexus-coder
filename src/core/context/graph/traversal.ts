@@ -4,9 +4,24 @@ import logger from '../../logger';
 
 export class GraphTraversal {
   private graph: SemanticCodeGraphData;
+  private adjacencyIndex: Map<string, Array<{ neighborId: string; edge: SCGEdge }>>;
 
   constructor(graph: SemanticCodeGraphData) {
     this.graph = graph;
+    this.adjacencyIndex = new Map();
+    this.buildAdjacencyIndex();
+  }
+
+  private buildAdjacencyIndex(): void {
+    for (const edge of this.graph.edges) {
+      const fromNeighbors = this.adjacencyIndex.get(edge.from) ?? [];
+      fromNeighbors.push({ neighborId: edge.to, edge });
+      this.adjacencyIndex.set(edge.from, fromNeighbors);
+
+      const toNeighbors = this.adjacencyIndex.get(edge.to) ?? [];
+      toNeighbors.push({ neighborId: edge.from, edge });
+      this.adjacencyIndex.set(edge.to, toNeighbors);
+    }
   }
 
   bfs(startIds: string[], maxDepth: number = 3): TraversalResult {
@@ -170,21 +185,11 @@ export class GraphTraversal {
   }
 
   private getNeighborIds(nodeId: string, edgeTypes?: EdgeType[]): Array<{ neighborId: string; edge: SCGEdge }> {
-    const results: Array<{ neighborId: string; edge: SCGEdge }> = [];
+    const neighbors = this.adjacencyIndex.get(nodeId);
+    if (!neighbors) return [];
 
-    for (const edge of this.graph.edges) {
-      if (edge.from === nodeId) {
-        if (!edgeTypes || edgeTypes.includes(edge.type)) {
-          results.push({ neighborId: edge.to, edge });
-        }
-      }
-      if (edge.to === nodeId) {
-        if (!edgeTypes || edgeTypes.includes(edge.type)) {
-          results.push({ neighborId: edge.from, edge });
-        }
-      }
-    }
+    if (!edgeTypes) return neighbors;
 
-    return results;
+    return neighbors.filter(({ edge }) => edgeTypes.includes(edge.type));
   }
 }

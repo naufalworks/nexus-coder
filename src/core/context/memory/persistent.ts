@@ -20,15 +20,42 @@ interface MemoryRecord {
 export class PersistentMemory {
   private storePath: string;
   private memories: Map<string, MemoryRecord>;
+  private keywordIndex: Map<string, Set<string>>;
   private maxMemories: number;
   private dirty: boolean;
 
   constructor(storePath?: string) {
     this.storePath = storePath || path.join(process.cwd(), '.nexus', 'memory.json');
     this.memories = new Map();
+    this.keywordIndex = new Map();
     this.maxMemories = MAX_MEMORIES;
     this.dirty = false;
     this.load();
+  }
+
+  private indexKeywords(id: string, content: string): void {
+    const words = content.toLowerCase().split(/\s+/);
+    for (const word of words) {
+      if (word.length < 3) continue;
+      const existing = this.keywordIndex.get(word);
+      if (existing) {
+        existing.add(id);
+      } else {
+        this.keywordIndex.set(word, new Set([id]));
+      }
+    }
+  }
+
+  private deindexKeywords(id: string, content: string): void {
+    const words = content.toLowerCase().split(/\s+/);
+    for (const word of words) {
+      if (word.length < 3) continue;
+      const set = this.keywordIndex.get(word);
+      if (set) {
+        set.delete(id);
+        if (set.size === 0) this.keywordIndex.delete(word);
+      }
+    }
   }
 
   store(content: string, category: MemoryRecord['category'], metadata?: Record<string, unknown>): string {
@@ -58,15 +85,28 @@ export class PersistentMemory {
     }
 
     this.memories.set(id, record);
+    this.indexKeywords(id, content);
     this.dirty = true;
     return id;
   }
 
   retrieve(query: string, limit: number = 10): MemoryRecord[] {
     const queryLower = query.toLowerCase();
-    const queryWords = queryLower.split(/\s+/);
+    const queryWords = queryLower.split(/\s+/).filter(w => w.length >= 3);
 
-    const scored = Array.from(this.memories.values()).map(record => {
+    const candidateIds = new Set<string>();
+    for (const word of queryWords) {
+      const ids = this.keywordIndex.get(word);
+      if (ids) {
+        for (const id of ids) candidateIds.add(id);
+      }
+    }
+
+    const candidates = candidateIds.size > 0
+      ? Array.from(candidateIds).map(id => this.memories.get(id)!).filter(Boolean)
+      : Array.from(this.memories.values());
+
+    const scored = candidates.map(record => {
       const contentLower = record.content.toLowerCase();
       let score = 0;
 
@@ -162,6 +202,7 @@ export class PersistentMemory {
       const data = JSON.parse(fs.readFileSync(this.storePath, 'utf-8')) as MemoryRecord[];
       for (const record of data) {
         this.memories.set(record.id, record);
+        this.indexKeywords(record.id, record.content);
       }
 
       logger.debug(`[Memory] Loaded ${this.memories.size} memories`);
@@ -180,6 +221,7 @@ export class PersistentMemory {
 
     const toRemove = entries.slice(0, Math.floor(this.maxMemories * EVICTION_PERCENTAGE));
     for (const record of toRemove) {
+      this.deindexKeywords(record.id, record.content);
       this.memories.delete(record.id);
     }
   }

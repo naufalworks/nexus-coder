@@ -63,7 +63,7 @@ export class EventBus {
 
     this.history.push(event);
     if (this.history.length > this.maxHistory) {
-      this.history = this.history.slice(-this.maxHistory);
+      this.history.splice(0, this.history.length - this.maxHistory);
     }
 
     logger.debug(`[EventBus] ${type} from ${source}`);

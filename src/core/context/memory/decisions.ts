@@ -109,6 +109,7 @@ export class DecisionJournal {
     try {
       if (!fs.existsSync(this.storePath)) return;
       this.decisions = JSON.parse(fs.readFileSync(this.storePath, 'utf-8'));
+      logger.debug(`[Decisions] Loaded ${this.decisions.length} decisions`);
     } catch (error) {
       logger.debug(`[Decisions] Failed to load: ${error}`);
     }

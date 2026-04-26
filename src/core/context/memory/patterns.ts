@@ -115,6 +115,7 @@ export class PatternStore {
     try {
       if (!fs.existsSync(this.storePath)) return;
       this.patterns = JSON.parse(fs.readFileSync(this.storePath, 'utf-8'));
+      logger.debug(`[Patterns] Loaded ${this.patterns.length} patterns`);
     } catch (error) {
       logger.debug(`[Patterns] Failed to load: ${error}`);
     }
