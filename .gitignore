@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+logs/
+*.log
+.DS_Store
+*.tsbuildinfo
+coverage/
+.nexus/
+qdrant_storage/

@@ -1,0 +1,63 @@
+{
+  "name": "nexus-coder",
+  "version": "0.1.0",
+  "description": "Multi-agent AI coding assistant with git-native workflow and unlimited context memory",
+  "main": "dist/cli/index.js",
+  "bin": {
+    "nexus": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "ai",
+    "coding-assistant",
+    "multi-agent",
+    "mcp",
+    "git",
+    "vector-database",
+    "claude"
+  ],
+  "author": "naufalworks",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@qdrant/js-client-rest": "^1.12.0",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "diff": "^5.2.0",
+    "dotenv": "^16.4.7",
+    "inquirer": "^9.2.23",
+    "ora": "^5.4.1",
+    "simple-git": "^3.27.0",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-javascript": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.2",
+    "tree-sitter-python": "^0.21.0",
+    "uuid": "^10.0.0",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/diff": "^5.2.0",
+    "@types/inquirer": "^9.0.7",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.5",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.17.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
