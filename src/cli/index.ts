@@ -1,282 +1,216 @@
-#!/usr/bin/env node
-
 import { Command } from 'commander';
 import chalk from 'chalk';
-import inquirer from 'inquirer';
-import ora from 'ora';
-import * as fs from 'fs';
-import * as path from 'path';
-import { AgentOrchestrator } from '../agents/orchestrator';
+import { UnifiedClient } from '../core/models/unified-client';
+import { ModelRouter } from '../core/models/router';
+import { EventBus } from '../core/event-bus';
+import { EmbeddingGenerator } from '../core/store/embeddings';
+import { ContextEngine } from '../core/context/engine';
 import { GitManager } from '../core/git-manager';
-import { ContextStore } from '../core/context-store';
-import { RepoMapGenerator } from '../core/repomap';
+import { AgentRegistry } from '../agents/registry';
+import { Planner } from '../agents/orchestrator/planner';
+import { DynamicOrchestrator } from '../agents/orchestrator/orchestrator';
+import { ContextAgent } from '../agents/specialized/context-agent';
+import { CoderAgent } from '../agents/specialized/coder-agent';
+import { ReviewerAgent } from '../agents/specialized/reviewer-agent';
+import { GitAgent } from '../agents/specialized/git-agent';
+import { InteractiveMode } from './interactive';
+import { ApprovalUI } from './approval-ui';
+import { AgentCapability, TaskType } from '../types';
+import { config } from '../core/config';
 import logger from '../core/logger';
 
+interface NexusServices {
+  client: UnifiedClient;
+  modelRouter: ModelRouter;
+  eventBus: EventBus;
+  embeddingGenerator: EmbeddingGenerator;
+  contextEngine: ContextEngine;
+  gitManager: GitManager;
+  registry: AgentRegistry;
+  planner: Planner;
+  orchestrator: DynamicOrchestrator;
+}
+
+let services: NexusServices | null = null;
+
+async function getServices(): Promise<NexusServices> {
+  if (services) return services;
+
+  logger.info('[Nexus] Initializing services...');
+
+  const client = new UnifiedClient();
+  const modelRouter = new ModelRouter(client);
+  const eventBus = new EventBus();
+  const embeddingGenerator = new EmbeddingGenerator();
+  const contextEngine = new ContextEngine(client, eventBus, embeddingGenerator);
+  const gitManager = new GitManager();
+  const registry = new AgentRegistry();
+  const planner = new Planner(client);
+
+  registry.register({
+    name: 'context',
+    capabilities: [AgentCapability.CONTEXT_RETRIEVAL],
+    supportedTaskTypes: [TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR, TaskType.UNKNOWN],
+    execute: async (instruction, context, classification) => {
+      const agent = new ContextAgent(contextEngine, eventBus);
+      return agent.execute(instruction, context, classification);
+    },
+  });
+
+  registry.register({
+    name: 'coder',
+    capabilities: [AgentCapability.CODE_GENERATION, AgentCapability.CODE_ANALYSIS],
+    supportedTaskTypes: [TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR, TaskType.TEST, TaskType.UNKNOWN],
+    execute: async (instruction, context, classification) => {
+      const agent = new CoderAgent(client, modelRouter, eventBus);
+      return agent.execute(instruction, context, classification);
+    },
+  });
+
+  registry.register({
+    name: 'reviewer',
+    capabilities: [AgentCapability.CODE_REVIEW],
+    supportedTaskTypes: [TaskType.REVIEW, TaskType.BUG_FIX, TaskType.FEATURE, TaskType.REFACTOR],
+    execute: async (instruction, context, classification) => {
+      const agent = new ReviewerAgent(client, eventBus);
+      return agent.execute(instruction, context, classification);
+    },
+  });
+
+  registry.register({
+    name: 'git',
+    capabilities: [AgentCapability.GIT_OPERATIONS],
+    supportedTaskTypes: [TaskType.CONFIGURATION, TaskType.UNKNOWN],
+    execute: async (instruction, _context, _classification) => {
+      const agent = new GitAgent(gitManager, client, eventBus);
+      return agent.execute(instruction, _context);
+    },
+  });
+
+  const orchestrator = new DynamicOrchestrator(
+    modelRouter,
+    contextEngine,
+    eventBus,
+    registry,
+    planner,
+  );
+
+  services = {
+    client,
+    modelRouter,
+    eventBus,
+    embeddingGenerator,
+    contextEngine,
+    gitManager,
+    registry,
+    planner,
+    orchestrator,
+  };
+
+  return services;
+}
+
 const program = new Command();
-const orchestrator = new AgentOrchestrator();
-const gitManager = new GitManager();
-const contextStore = new ContextStore();
-const repoMapGenerator = new RepoMapGenerator();
 
 program
   .name('nexus')
-  .description('Multi-agent AI coding assistant with git-native workflow')
-  .version('0.1.0');
+  .description('Nexus Coder V2 — Multi-Agent AI Coding Assistant with 100x Context')
+  .version('2.0.0');
 
 program
-  .command('init')
-  .description('Initialize nexus-coder in the current directory')
-  .action(async () => {
-    console.log(chalk.blue.bold('\n🚀 Initializing Nexus Coder...\n'));
-
-    const spinner = ora('Checking git repository...').start();
-
+  .command('code <instruction>')
+  .description('Execute a coding task')
+  .option('--no-review', 'Skip code review')
+  .option('--no-approval', 'Auto-approve changes')
+  .action(async (instruction: string, options: { review: boolean; approval: boolean }) => {
     try {
-      const isRepo = await gitManager.isRepo();
-      if (!isRepo) {
-        spinner.text = 'Creating git repository...';
-        await gitManager.initRepo();
+      const svc = await getServices();
+
+      console.log(chalk.cyan('Building Semantic Code Graph...'));
+      await svc.contextEngine.initialize(process.cwd());
+
+      if (options.approval) {
+        const approvalUI = new ApprovalUI();
+        svc.orchestrator.setApprovalCallback(async (request) => {
+          return approvalUI.requestApproval(request);
+        });
+      } else {
+        svc.orchestrator.setApprovalCallback(async () => ({ approved: true }));
       }
-      spinner.succeed('Git repository ready');
 
-      spinner.start('Initializing context store...');
-      await contextStore.initialize();
-      spinner.succeed('Context store initialized');
+      const task = await svc.orchestrator.execute(instruction);
 
-      spinner.start('Generating repository map...');
-      const repoMap = await repoMapGenerator.generate(process.cwd());
-      spinner.succeed(`Repository map generated (${repoMap.files.size} files)`);
+      if (task.result?.success) {
+        console.log(chalk.bold.green('\n✓ Task completed successfully'));
+        console.log(task.result.output);
+      } else {
+        console.log(chalk.bold.red(`\n✗ Task failed: ${task.error}`));
+      }
 
-      console.log(chalk.green.bold('\n✓ Nexus Coder initialized successfully!\n'));
-      console.log(chalk.gray('Next steps:'));
-      console.log(chalk.gray('  1. Configure your .env file with API keys'));
-      console.log(chalk.gray('  2. Run `nexus code "your instruction"` to start coding\n'));
+      if (task.tokenUsage) {
+        console.log(chalk.dim(
+          `\nCost: $${task.tokenUsage.estimatedCost.toFixed(4)} ` +
+          `(${task.tokenUsage.total} tokens)`
+        ));
+      }
     } catch (error) {
-      spinner.fail('Initialization failed');
-      logger.error('Init error:', error);
+      console.error(chalk.red(`Fatal error: ${error}`));
       process.exit(1);
     }
   });
 
 program
-  .command('code <instruction>')
-  .description('Execute a coding task with multi-agent coordination')
-  .option('-c, --context <context>', 'Additional context for the task')
-  .option('-a, --auto-approve', 'Automatically approve changes (not recommended)')
-  .action(async (instruction: string, options) => {
-    console.log(chalk.blue.bold('\n🤖 Nexus Coder - Multi-Agent Coding Assistant\n'));
-
-    const spinner = ora('Analyzing task...').start();
-
+  .command('chat')
+  .description('Start interactive mode')
+  .action(async () => {
     try {
-      const result = await orchestrator.executeTask(instruction, process.cwd());
-
-      spinner.succeed('Task analyzed');
-
-      console.log(chalk.cyan('\n📋 Task Breakdown:'));
-      console.log(chalk.gray(result.taskBreakdown));
-
-      console.log(chalk.cyan('\n🔍 Code Analysis:'));
-      console.log(chalk.gray(result.codeAnalysis));
-
-      if (!options.autoApprove) {
-        const { approved } = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'approved',
-            message: 'Do you want to proceed with the proposed changes?',
-            default: false,
-          },
-        ]);
-
-        if (!approved) {
-          console.log(chalk.yellow('\n✗ Changes rejected by user\n'));
-          return;
-        }
-      }
-
-      console.log(chalk.green('\n✓ Task completed successfully!\n'));
+      const svc = await getServices();
+      console.log(chalk.cyan('Building Semantic Code Graph...'));
+      await svc.contextEngine.initialize(process.cwd());
+      const interactive = new InteractiveMode(svc.orchestrator, svc.modelRouter);
+      await interactive.start();
     } catch (error) {
-      spinner.fail('Task execution failed');
-      logger.error('Code command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
+      console.error(chalk.red(`Fatal error: ${error}`));
       process.exit(1);
+    }
+  });
+
+program
+  .command('init')
+  .description('Initialize the project (build context graph)')
+  .action(async () => {
+    try {
+      const svc = await getServices();
+      console.log(chalk.cyan('Building Semantic Code Graph...'));
+      await svc.contextEngine.initialize(process.cwd());
+      const graph = svc.contextEngine.getGraph();
+      if (graph) {
+        console.log(chalk.green(`✓ Graph built: ${graph.nodes.size} nodes, ${graph.edges.length} edges, ${graph.fileCount} files`));
+      }
+    } catch (error) {
+      console.error(chalk.red(`Init failed: ${error}`));
     }
   });
 
 program
   .command('status')
-  .description('Show current git status and context information')
+  .description('Show system status')
   .action(async () => {
-    console.log(chalk.blue.bold('\n📊 Nexus Coder Status\n'));
-
     try {
-      const gitStatus = await gitManager.getStatus();
-
-      console.log(chalk.cyan('Git Status:'));
-      console.log(chalk.gray(`  Current branch: ${gitStatus.current}`));
-      console.log(chalk.gray(`  Modified files: ${gitStatus.modified.length}`));
-      console.log(chalk.gray(`  Staged files: ${gitStatus.staged.length}`));
-
-      if (gitStatus.modified.length > 0) {
-        console.log(chalk.yellow('\nModified files:'));
-        gitStatus.modified.forEach((file: string) => {
-          console.log(chalk.gray(`  - ${file}`));
-        });
-      }
-
+      console.log(chalk.cyan('\nNexus Coder V2 — Status'));
+      console.log(`  Working Directory: ${process.cwd()}`);
+      console.log(`  API Endpoint: ${config.api.baseUrl}`);
+      console.log(`  Models:`);
+      console.log(`    Heavy:   ${config.models.heavy}`);
+      console.log(`    Fast:    ${config.models.fast}`);
+      console.log(`    General: ${config.models.general}`);
+      console.log(`    Coder:   ${config.models.coder}`);
+      console.log(`    Analyst: ${config.models.analyst}`);
+      console.log(`  Context Engine: Semantic Code Graph (SCG)`);
+      console.log(`  Agents: context, coder, reviewer, git`);
       console.log();
     } catch (error) {
-      logger.error('Status command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('diff [file]')
-  .description('Show git diff for file or all changes')
-  .action(async (file?: string) => {
-    console.log(chalk.blue.bold('\n📝 Git Diff\n'));
-
-    try {
-      const diff = await gitManager.getDiff(file);
-
-      if (!diff) {
-        console.log(chalk.gray('No changes detected\n'));
-        return;
-      }
-
-      console.log(chalk.gray(diff));
-      console.log();
-    } catch (error) {
-      logger.error('Diff command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('history [limit]')
-  .description('Show recent commit history')
-  .action(async (limit: string = '10') => {
-    console.log(chalk.blue.bold('\n📜 Commit History\n'));
-
-    try {
-      const commits = await gitManager.getCommitHistory(parseInt(limit));
-
-      commits.forEach((commit: any) => {
-        console.log(chalk.cyan(`${commit.hash.substring(0, 7)}`) + 
-          chalk.gray(` - ${commit.message}`));
-      });
-
-      console.log();
-    } catch (error) {
-      logger.error('History command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('undo')
-  .description('Undo the last commit')
-  .action(async () => {
-    console.log(chalk.yellow.bold('\n⚠️  Undo Last Commit\n'));
-
-    try {
-      const { confirm } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Are you sure you want to undo the last commit? This cannot be undone.',
-          default: false,
-        },
-      ]);
-
-      if (confirm) {
-        await gitManager.undoLastCommit();
-        console.log(chalk.green('\n✓ Last commit undone\n'));
-      } else {
-        console.log(chalk.gray('\nOperation cancelled\n'));
-      }
-    } catch (error) {
-      logger.error('Undo command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('branch <name>')
-  .description('Create and switch to a new branch')
-  .action(async (name: string) => {
-    console.log(chalk.blue.bold('\n🌿 Create Branch\n'));
-
-    try {
-      await gitManager.createBranch(name);
-      console.log(chalk.green(`\n✓ Created and switched to branch: ${name}\n`));
-    } catch (error) {
-      logger.error('Branch command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('context <query>')
-  .description('Search context memory for relevant information')
-  .action(async (query: string) => {
-    console.log(chalk.blue.bold('\n🧠 Context Search\n'));
-
-    try {
-      const results = await contextStore.search(query);
-
-      if (results.length === 0) {
-        console.log(chalk.gray('No relevant context found\n'));
-        return;
-      }
-
-      results.forEach((result, index) => {
-        const relevance = result.metadata?.relevance ?? 0;
-        console.log(chalk.cyan(`\n[${index + 1}] Relevance: ${relevance.toFixed(2)}`));
-        console.log(chalk.gray(result.content.substring(0, 200) + '...'));
-      });
-
-      console.log();
-    } catch (error) {
-      logger.error('Context command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('clear-context')
-  .description('Clear all stored context memory')
-  .action(async () => {
-    console.log(chalk.yellow.bold('\n⚠️  Clear Context Memory\n'));
-
-    try {
-      const { confirm } = await inquirer.prompt([
-        {
-          type: 'confirm',
-          name: 'confirm',
-          message: 'Are you sure you want to clear all context memory?',
-          default: false,
-        },
-      ]);
-
-      if (confirm) {
-        await contextStore.clear();
-        console.log(chalk.green('\n✓ Context memory cleared\n'));
-      } else {
-        console.log(chalk.gray('\nOperation cancelled\n'));
-      }
-    } catch (error) {
-      logger.error('Clear context command error:', error);
-      console.log(chalk.red('\n✗ Error: ') + error);
-      process.exit(1);
+      console.error(chalk.red(`Status failed: ${error}`));
     }
   });
 

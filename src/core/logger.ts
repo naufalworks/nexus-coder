@@ -13,7 +13,7 @@ const consoleFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(({ timestamp, level, message, ...meta }) => {
     let msg = `${timestamp} [${level}]: ${message}`;
-    if (Object.keys(meta).length > 0) {
+    if (Object.keys(meta).length > 0 && meta.constructor?.name !== 'Object') {
       msg += ` ${JSON.stringify(meta)}`;
     }
     return msg;

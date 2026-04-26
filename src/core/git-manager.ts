@@ -1,5 +1,5 @@
 import simpleGit, { SimpleGit, StatusResult } from 'simple-git';
-import { GitCommit, CodeChange, ChangeType } from '../types';
+import { CodeChange, ChangeType } from '../types';
 import logger from './logger';
 
 export class GitManager {
@@ -28,7 +28,15 @@ export class GitManager {
     }
   }
 
-  async getStatus(): Promise<any> {
+  async getStatus(): Promise<{
+    current: string | null;
+    tracking: string | null;
+    files: StatusResult['files'];
+    staged: string[];
+    modified: string[];
+    created: string[];
+    deleted: string[];
+  }> {
     const status: StatusResult = await this.git.status();
     return {
       current: status.current,
@@ -56,30 +64,24 @@ export class GitManager {
   async commitChanges(
     changes: CodeChange[],
     reasoning: string
-  ): Promise<GitCommit> {
+  ): Promise<{ hash: string; message: string; author: string; timestamp: Date }> {
     const files = changes.map((c) => c.file);
     await this.stageChanges(files);
 
     const message = this.generateCommitMessage(changes, reasoning);
     const result = await this.git.commit(message);
 
-    const commit: GitCommit = {
-      hash: result.commit,
-      message: message,
-      author: result.author?.name || 'nexus-coder',
-      timestamp: new Date(),
-      changes: changes,
-      reasoning: reasoning,
-    };
-
     logger.info(`Committed changes: ${result.commit}`);
-    return commit;
+
+    return {
+      hash: result.commit,
+      message,
+      author: result.author?.name ?? 'nexus-coder',
+      timestamp: new Date(),
+    };
   }
 
-  private generateCommitMessage(
-    changes: CodeChange[],
-    reasoning: string
-  ): string {
+  generateCommitMessage(changes: CodeChange[], reasoning: string): string {
     const changeTypes = changes.map((c) => c.type);
     const hasCreate = changeTypes.includes(ChangeType.CREATE);
     const hasModify = changeTypes.includes(ChangeType.MODIFY);
@@ -112,9 +114,13 @@ export class GitManager {
     logger.info(`Switched to branch: ${branchName}`);
   }
 
-  async getCommitHistory(limit: number = 10): Promise<any[]> {
+  async getCommitHistory(limit: number = 10): Promise<Array<{ hash: string; message: string; date: string }>> {
     const log = await this.git.log(['--oneline', `-${limit}`]);
-    return [...log.all];
+    return log.all.map((entry) => ({
+      hash: entry.hash,
+      message: entry.message,
+      date: entry.date,
+    }));
   }
 
   async hasUncommittedChanges(): Promise<boolean> {
@@ -122,16 +128,25 @@ export class GitManager {
     return status.files.length > 0;
   }
 
-  async commitUncommittedChanges(message?: string): Promise<void> {
+  async stageAllChanges(): Promise<void> {
     const hasChanges = await this.hasUncommittedChanges();
     if (hasChanges) {
       await this.git.add('.');
-      await this.git.commit(
-        message || `${this.commitPrefix} chore: Save uncommitted changes`
-      );
-      logger.info('Committed uncommitted changes');
+      logger.info('Staged all uncommitted changes');
+    }
+  }
+
+  async getCurrentBranch(): Promise<string> {
+    const status = await this.git.status();
+    return status.current ?? 'main';
+  }
+
+  async fileExists(file: string): Promise<boolean> {
+    try {
+      await this.git.catFile(['-e', `HEAD:${file}`]);
+      return true;
+    } catch {
+      return false;
     }
   }
 }
-
-export const gitManager = new GitManager();
