@@ -238,7 +238,8 @@ program
       }
 
       results.forEach((result, index) => {
-        console.log(chalk.cyan(`\n[${index + 1}] Relevance: ${result.relevance.toFixed(2)}`));
+        const relevance = result.metadata?.relevance ?? 0;
+        console.log(chalk.cyan(`\n[${index + 1}] Relevance: ${relevance.toFixed(2)}`));
         console.log(chalk.gray(result.content.substring(0, 200) + '...'));
       });
 

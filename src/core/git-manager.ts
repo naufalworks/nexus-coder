@@ -1,7 +1,6 @@
-import simpleGit, { SimpleGit } from 'simple-git';
-import { GitCommit, CodeChange } from '../types';
+import simpleGit, { SimpleGit, StatusResult } from 'simple-git';
+import { GitCommit, CodeChange, ChangeType } from '../types';
 import logger from './logger';
-import { v4 as uuidv4 } from 'uuid';
 
 export class GitManager {
   private git: SimpleGit;
@@ -30,7 +29,7 @@ export class GitManager {
   }
 
   async getStatus(): Promise<any> {
-    const status = await this.git.status();
+    const status: StatusResult = await this.git.status();
     return {
       current: status.current,
       tracking: status.tracking,
@@ -67,7 +66,7 @@ export class GitManager {
     const commit: GitCommit = {
       hash: result.commit,
       message: message,
-      author: result.author,
+      author: result.author?.name || 'nexus-coder',
       timestamp: new Date(),
       changes: changes,
       reasoning: reasoning,
@@ -82,10 +81,10 @@ export class GitManager {
     reasoning: string
   ): string {
     const changeTypes = changes.map((c) => c.type);
-    const hasCreate = changeTypes.includes('create');
-    const hasModify = changeTypes.includes('modify');
-    const hasDelete = changeTypes.includes('delete');
-    const hasRefactor = changeTypes.includes('refactor');
+    const hasCreate = changeTypes.includes(ChangeType.CREATE);
+    const hasModify = changeTypes.includes(ChangeType.MODIFY);
+    const hasDelete = changeTypes.includes(ChangeType.DELETE);
+    const hasRefactor = changeTypes.includes(ChangeType.REFACTOR);
 
     let prefix = 'feat';
     if (hasRefactor && !hasCreate && !hasModify) prefix = 'refactor';
@@ -115,7 +114,7 @@ export class GitManager {
 
   async getCommitHistory(limit: number = 10): Promise<any[]> {
     const log = await this.git.log(['--oneline', `-${limit}`]);
-    return log.all;
+    return [...log.all];
   }
 
   async hasUncommittedChanges(): Promise<boolean> {

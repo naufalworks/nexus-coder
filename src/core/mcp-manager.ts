@@ -35,7 +35,7 @@ export class MCPManager {
     const transport = new StdioClientTransport({
       command: config.command,
       args: config.args,
-      env: config.env,
+      env: config.env as Record<string, string>,
     });
 
     const client = new Client(
@@ -44,9 +44,7 @@ export class MCPManager {
         version: '0.1.0',
       },
       {
-        capabilities: {
-          tools: {},
-        },
+        capabilities: {},
       }
     );
 
@@ -54,7 +52,6 @@ export class MCPManager {
 
     this.clients.set(config.name, client);
 
-    // Discover available tools
     const toolsResponse = await client.listTools();
     const tools = toolsResponse.tools.map((tool) => ({
       name: tool.name,

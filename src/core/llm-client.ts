@@ -42,11 +42,11 @@ export class LLMClient {
 
   async streamMessage(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    systemPrompt?: string,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    systemPrompt?: string
   ): Promise<string> {
     try {
-      const stream = await this.client.messages.stream({
+      const stream = this.client.messages.stream({
         model: this.model,
         max_tokens: this.maxTokens,
         system: systemPrompt,
