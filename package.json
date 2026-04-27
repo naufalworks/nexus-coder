@@ -11,6 +11,8 @@
     "dev": "ts-node src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "test": "jest",
+    "test:e2e": "jest --config jest.config.js --testPathPattern='tests/e2e' --verbose --forceExit --detectOpenHandles",
+    "test:e2e:local": "jest --config jest.config.js --testPathPattern='tests/e2e/06|tests/e2e/07' --verbose --forceExit",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
   },
