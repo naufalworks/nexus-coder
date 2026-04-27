@@ -4,6 +4,7 @@ import { UnifiedClient } from '../../src/core/models/unified-client';
 import { SemanticGraphBuilder } from '../../src/core/context/graph/semantic-graph';
 import { GraphTraversal } from '../../src/core/context/graph/traversal';
 import { SemanticCodeGraphData, SCGNode } from '../../src/types';
+import { removeSrcCache } from './setup';
 
 const SRC_DIR = path.resolve(__dirname, '../../src');
 const REPO_ROOT = path.resolve(__dirname, '../..');
@@ -17,6 +18,7 @@ function cleanup(): void {
   if (fs.existsSync(TEST_DATA_DIR)) {
     fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
+  removeSrcCache();
 }
 
 describeIf('E2E: Graph Building (SCG)', () => {
@@ -33,9 +35,7 @@ describeIf('E2E: Graph Building (SCG)', () => {
     console.log(`[Graph Build] Nodes: ${graph.nodes.size}, Edges: ${graph.edges.length}`);
   });
 
-  afterAll(() => {
-    cleanup();
-  });
+
 
   test('should produce non-empty node set', () => {
     expect(graph.nodes.size).toBeGreaterThan(0);

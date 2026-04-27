@@ -14,6 +14,7 @@ import { ContextAgent } from '../../src/agents/specialized/context-agent';
 import { CoderAgent } from '../../src/agents/specialized/coder-agent';
 import { ReviewerAgent } from '../../src/agents/specialized/reviewer-agent';
 import { GitAgent } from '../../src/agents/specialized/git-agent';
+import { setupEnv, removeSrcCache } from './setup';
 
 const SRC_DIR = path.resolve(__dirname, '../../src');
 const TEST_WORK_DIR = path.join(process.cwd(), '.nexus-test-pipeline');
@@ -78,6 +79,7 @@ describeIf('E2E: Full Pipeline — Instruction to File Changes', () => {
   let orchestrator: DynamicOrchestrator;
 
   beforeAll(async () => {
+    removeSrcCache();
     if (!fs.existsSync(TEST_WORK_DIR)) {
       fs.mkdirSync(TEST_WORK_DIR, { recursive: true });
     }

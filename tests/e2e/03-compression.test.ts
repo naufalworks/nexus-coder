@@ -1,11 +1,12 @@
 import * as path from 'path';
-import { UnifiedClient } from '../../src/core/models/unified-client';
+import * as fs from 'fs';
 import { SemanticGraphBuilder } from '../../src/core/context/graph/semantic-graph';
 import { GraphTraversal } from '../../src/core/context/graph/traversal';
 import { CompressionEngine } from '../../src/core/context/compression/compressor';
 import { CompressionLevel, SCGNode } from '../../src/types';
 
 const SRC_DIR = path.resolve(__dirname, '../../src');
+const CACHE_PATH = path.resolve(__dirname, '../../.nexus-test-data/graph.json');
 
 const hasApiKey = !!(process.env.NEXUS_API_KEY && process.env.NEXUS_BASE_URL);
 const describeIf = hasApiKey ? describe : describe.skip;
@@ -17,20 +18,28 @@ describeIf('E2E: Compression Engine', () => {
   let allNodes: SCGNode[];
   let sampleNode: SCGNode | undefined;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     compressionEngine = new CompressionEngine();
-    const client = new UnifiedClient();
-    const builder = new SemanticGraphBuilder(client);
-    const graph = await builder.buildGraph(SRC_DIR);
+
+    let graph;
+    if (fs.existsSync(CACHE_PATH)) {
+      const client = { chat: jest.fn() } as any;
+      const builder = new SemanticGraphBuilder(client);
+      graph = builder.deserialize(CACHE_PATH, SRC_DIR);
+    }
+
+    if (!graph || graph.nodes.size === 0) {
+      throw new Error('No cached graph found. Run test 01 first.');
+    }
+
     const traversal = new GraphTraversal(graph);
     allNodes = Array.from(graph.nodes.values());
 
-    const neighborhood = traversal.getTaskNeighborhood(
-      [allNodes.find(n => n.name === 'ContextEngine')!.id],
-      10000,
-      3,
-    );
-    sampleNode = neighborhood.expandedNodes[0]?.node;
+    const engineNode = allNodes.find(n => n.name === 'ContextEngine');
+    if (engineNode) {
+      const neighborhood = traversal.getTaskNeighborhood([engineNode.id], 10000, 3);
+      sampleNode = neighborhood.expandedNodes[0]?.node;
+    }
   });
 
   test('should compress a node at SIGNATURE level', async () => {
@@ -76,15 +85,23 @@ describeIf('E2E: Compression Engine', () => {
     expect(part.length).toBeLessThanOrEqual(full.length);
   });
 
-  test('should compress full neighborhood from real graph', async () => {
-    const client = new UnifiedClient();
-    const builder = new SemanticGraphBuilder(client);
-    const graph = await builder.buildGraph(SRC_DIR);
+  test('should compress full neighborhood from cached graph', async () => {
+    let graph;
+    if (fs.existsSync(CACHE_PATH)) {
+      const client = { chat: jest.fn() } as any;
+      const builder = new SemanticGraphBuilder(client);
+      graph = builder.deserialize(CACHE_PATH, SRC_DIR);
+    }
+
+    if (!graph || graph.nodes.size === 0) {
+      throw new Error('No cached graph found. Run test 01 first.');
+    }
+
     const traversal = new GraphTraversal(graph);
+    const engineNode = Array.from(graph.nodes.values()).find(n => n.name === 'ContextEngine');
+    if (!engineNode) throw new Error('ContextEngine node not found');
 
-    const engineNode = Array.from(graph.nodes.values()).find(n => n.name === 'ContextEngine')!;
     const neighborhood = traversal.getTaskNeighborhood([engineNode.id], 5000, 2);
-
     const compressed = await compressionEngine.compressGraphNeighborhood(neighborhood);
 
     expect(compressed).toBeDefined();

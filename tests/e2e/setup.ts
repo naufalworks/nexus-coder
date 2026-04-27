@@ -25,6 +25,23 @@ export const REPO_ROOT = path.resolve(__dirname, '../../');
 export const SRC_DIR = path.join(REPO_ROOT, 'src');
 export const TEST_WORK_DIR = path.join(REPO_ROOT, '.nexus-test-workspace');
 export const TEST_MEMORY_DIR = path.join(REPO_ROOT, '.nexus-test-data');
+const NEXUS_SRC_CACHE = path.join(SRC_DIR, '.nexus');
+
+export function setupEnv(): void {
+  if (process.env.NEXUS_API_KEY && !process.env.NEXUS_MODEL_GENERAL) {
+    process.env.NEXUS_MODEL_GENERAL = 'glm-5.1';
+    process.env.NEXUS_MODEL_FAST = 'glm-5.1';
+    process.env.NEXUS_MODEL_HEAVY = 'glm-5.1';
+    process.env.NEXUS_MODEL_CODER = 'glm-5.1';
+    process.env.NEXUS_MODEL_ANALYST = 'glm-5.1';
+  }
+}
+
+export function removeSrcCache(): void {
+  if (fs.existsSync(NEXUS_SRC_CACHE)) {
+    fs.rmSync(NEXUS_SRC_CACHE, { recursive: true, force: true });
+  }
+}
 
 export function hasApiKey(): boolean {
   return !!(process.env.NEXUS_API_KEY && process.env.NEXUS_BASE_URL);
@@ -53,6 +70,8 @@ export function cleanupTestDir(): void {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   }
+
+  removeSrcCache();
 
   const cachePath = path.join(REPO_ROOT, '.nexus');
   if (fs.existsSync(cachePath)) {

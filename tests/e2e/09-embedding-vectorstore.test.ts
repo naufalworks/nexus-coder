@@ -1,12 +1,12 @@
 import { EmbeddingGenerator } from '../../src/core/store/embeddings';
 import { VectorStore } from '../../src/core/store/vector-store';
+import { setupEnv } from './setup';
 
 const hasApiKey = !!(process.env.NEXUS_API_KEY && process.env.NEXUS_BASE_URL);
-const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
 const hasQdrant = !!process.env.QDRANT_URL;
 
-const describeIfEmbeddings = (hasApiKey && hasOpenAIKey) ? describe : describe.skip;
-const describeIfVectorStore = (hasApiKey && hasOpenAIKey && hasQdrant) ? describe : describe.skip;
+const describeIfEmbeddings = hasApiKey ? describe : describe.skip;
+const describeIfVectorStore = (hasApiKey && hasQdrant) ? describe : describe.skip;
 
 describeIfEmbeddings('E2E: Embedding Generation (Real API)', () => {
   jest.setTimeout(60000);

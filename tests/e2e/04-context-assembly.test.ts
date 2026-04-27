@@ -4,6 +4,7 @@ import { UnifiedClient } from '../../src/core/models/unified-client';
 import { EventBus } from '../../src/core/event-bus';
 import { ContextEngine } from '../../src/core/context/engine';
 import { EmbeddingGenerator } from '../../src/core/store/embeddings';
+import { setupEnv, removeSrcCache } from './setup';
 
 const SRC_DIR = path.resolve(__dirname, '../../src');
 const NEXUS_CACHE = path.resolve(__dirname, '../../.nexus');
@@ -17,6 +18,7 @@ describeIf('E2E: Context Assembly', () => {
   let engine: ContextEngine;
 
   beforeAll(async () => {
+    removeSrcCache();
     const client = new UnifiedClient();
     const eventBus = new EventBus();
     const embeddingGenerator = new EmbeddingGenerator();

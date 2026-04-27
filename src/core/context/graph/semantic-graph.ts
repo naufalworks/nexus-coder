@@ -14,7 +14,7 @@ const SUMMARY_BATCH_SIZE = 10;
 const MAX_SUMMARY_LENGTH = 120;
 
 const IGNORED_DIRS = new Set([
-  'node_modules', 'dist', 'build', '.git', '.next',
+  'node_modules', 'dist', 'build', '.git', '.next', '.nexus',
   '__pycache__', 'venv', '.venv', 'coverage', '.cache',
   'target', 'bin', 'obj', '.vscode', '.idea',
 ]);
@@ -30,32 +30,32 @@ const LANGUAGE_MAP: Record<string, string> = {
 };
 
 export class SemanticGraphBuilder {
-  private parsers: Map<string, Parser>;
   private client: UnifiedClient;
   private nodeIndex: number;
 
   constructor(client: UnifiedClient) {
     this.client = client;
-    this.parsers = new Map();
     this.nodeIndex = 0;
-    this.initializeParsers();
   }
 
-  private initializeParsers(): void {
+  private getParser(language: string): Parser | null {
     try {
-      const tsParser = new Parser();
-      tsParser.setLanguage(TypeScript.typescript);
-      this.parsers.set('typescript', tsParser);
-
-      const jsParser = new Parser();
-      jsParser.setLanguage(JavaScript);
-      this.parsers.set('javascript', jsParser);
-
-      const pyParser = new Parser();
-      pyParser.setLanguage(Python);
-      this.parsers.set('python', pyParser);
-    } catch (error) {
-      logger.warn('Failed to initialize some tree-sitter parsers:', error);
+      const parser = new Parser();
+      switch (language) {
+        case 'typescript':
+          parser.setLanguage(TypeScript.typescript);
+          return parser;
+        case 'javascript':
+          parser.setLanguage(JavaScript);
+          return parser;
+        case 'python':
+          parser.setLanguage(Python);
+          return parser;
+        default:
+          return null;
+      }
+    } catch {
+      return null;
     }
   }
 
@@ -72,10 +72,11 @@ export class SemanticGraphBuilder {
       try {
         const ext = path.extname(filePath).substring(1);
         const language = LANGUAGE_MAP[ext];
-        if (!language || !this.parsers.has(language)) continue;
+        if (!language) continue;
 
         const content = await fs.promises.readFile(filePath, 'utf-8');
-        const parser = this.parsers.get(language)!;
+        const parser = this.getParser(language);
+        if (!parser) continue;
         const tree = parser.parse(content);
 
         if (!tree) continue;
@@ -265,16 +266,23 @@ export class SemanticGraphBuilder {
   private extractEdges(rootNode: Parser.SyntaxNode, filePath: string, fileNodes: SCGNode[]): SCGEdge[] {
     const edges: SCGEdge[] = [];
     const astIndex = this.buildAstIndex(rootNode);
+    const nodeByName = new Map<string, SCGNode>();
+    for (const fn of fileNodes) {
+      nodeByName.set(fn.name, fn);
+    }
 
     for (const node of fileNodes) {
       const parentMap = this.findRelationshipsWithIndex(astIndex, node, filePath);
       for (const [targetName, edgeType] of parentMap) {
-        edges.push({
-          from: node.id,
-          to: this.generateNodeId(filePath, targetName, 0),
-          type: edgeType,
-          weight: 1.0,
-        });
+        const targetNode = nodeByName.get(targetName);
+        if (targetNode) {
+          edges.push({
+            from: node.id,
+            to: targetNode.id,
+            type: edgeType,
+            weight: 1.0,
+          });
+        }
       }
     }
 
