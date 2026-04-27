@@ -13,3 +13,11 @@ export interface AgentContext {
   currentFile?: string;
   workingDirectory: string;
 }
+
+export interface AgentInfo {
+  name: string;
+  capabilities: import('./task').AgentCapability[];
+  supportedTaskTypes: import('./task').TaskType[];
+  status?: 'idle' | 'busy' | 'error';
+  currentTask?: string;
+}

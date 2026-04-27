@@ -29,6 +29,7 @@ export {
 export {
   AgentMessage,
   AgentContext,
+  AgentInfo,
 } from './agent';
 
 export {

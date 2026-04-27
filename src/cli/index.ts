@@ -15,9 +15,20 @@ import { ReviewerAgent } from '../agents/specialized/reviewer-agent';
 import { GitAgent } from '../agents/specialized/git-agent';
 import { InteractiveMode } from './interactive';
 import { ApprovalUI } from './approval-ui';
-import { AgentCapability, TaskType } from '../types';
+import { AgentCapability, TaskType, TaskStatus } from '../types';
 import { config } from '../core/config';
 import logger from '../core/logger';
+import {
+  approveCommand,
+  diffCommand,
+  statusCommand,
+  tasksCommand,
+  codeCommand,
+  reviewCommand,
+  graphCommand,
+  contextCommand,
+  CLIContext,
+} from './commands';
 
 interface NexusServices {
   client: UnifiedClient;
@@ -208,6 +219,157 @@ program
       console.log();
     } catch (error) {
       console.error(chalk.red(`Status failed: ${error}`));
+    }
+  });
+
+// Helper to build CLI context from services
+function buildCLIContext(svc: NexusServices): CLIContext {
+  const tasks: any[] = [];
+  const agents = Array.from(svc.registry['agents'].values()).map(a => ({
+    name: a.name,
+    capabilities: a.capabilities,
+    supportedTaskTypes: a.supportedTaskTypes,
+    status: 'idle' as const,
+  }));
+  const changes: any[] = [];
+  const graph = svc.contextEngine.getGraph() ?? undefined;
+  const log: any[] = [];
+
+  return { tasks, agents, changes, graph, log };
+}
+
+// New CLI commands mirroring IDE widget flows
+
+program
+  .command('approve')
+  .description('Approve code changes')
+  .option('--task-id <id>', 'Task ID')
+  .option('--change-index <index>', 'Change index', parseInt)
+  .option('--all', 'Approve all changes')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await approveCommand(context, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('diff')
+  .description('Display code changes')
+  .option('--task-id <id>', 'Filter by task ID')
+  .option('--verbose', 'Show detailed diff')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await diffCommand(context, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('agent-status')
+  .description('Display agent status and progress')
+  .option('--agent <name>', 'Filter by agent name')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await statusCommand(context, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('tasks')
+  .description('List and filter tasks')
+  .option('--status <status>', 'Filter by status')
+  .option('--agent <name>', 'Filter by agent')
+  .option('--verbose', 'Show detailed information')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await tasksCommand(context, {
+        status: options.status as TaskStatus | undefined,
+        agent: options.agent,
+        verbose: options.verbose,
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('show-code')
+  .description('Display code context for a task')
+  .requiredOption('--task-id <id>', 'Task ID')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await codeCommand(context, { taskId: options.taskId });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('review')
+  .description('Display reasoning log')
+  .option('--agent <name>', 'Filter by agent')
+  .option('--keyword <keyword>', 'Filter by keyword')
+  .option('--limit <n>', 'Limit number of entries', parseInt)
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await reviewCommand(context, options);
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('graph')
+  .description('Display semantic code graph for a task')
+  .requiredOption('--task-id <id>', 'Task ID')
+  .option('--expand', 'Show relationships')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      await svc.contextEngine.initialize(process.cwd());
+      const context = buildCLIContext(svc);
+      await graphCommand(context, { taskId: options.taskId, expand: options.expand });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('context')
+  .description('Display full context for a task')
+  .requiredOption('--task-id <id>', 'Task ID')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      const context = buildCLIContext(svc);
+      await contextCommand(context, { taskId: options.taskId });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
     }
   });
 

@@ -1,0 +1,921 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.1: IDE_Shell states should match snapshot for default state 1`] = `
+<div>
+  <div>
+    Widget content here
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.1: IDE_Shell states should match snapshot for empty state 1`] = `
+<div>
+  <div
+    data-testid="empty"
+  >
+    No tasks available
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.1: IDE_Shell states should match snapshot for error state 1`] = `
+<div>
+  <div
+    data-testid="error"
+    role="alert"
+  >
+    Error occurred
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.1: IDE_Shell states should match snapshot for loading state 1`] = `
+<div>
+  <div
+    data-testid="loading"
+  >
+    Loading...
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.2: Pixel diff detection should fail and report diff when output changes 1`] = `
+<div>
+  <div
+    class="task-panel"
+  >
+    <h2>
+      Tasks
+    </h2>
+    <ul
+      class="task-list"
+    >
+      <li
+        class="task-item"
+        data-task-id="task-t9yc93z"
+        data-task-status="awaiting_approval"
+        role="button"
+        tabindex="0"
+      >
+        <div
+          class="task-header"
+        >
+          <span
+            class="task-instruction"
+          >
+            Test task instruction
+          </span>
+          <span
+            class="task-status status-awaiting_approval"
+          >
+            awaiting_approval
+          </span>
+        </div>
+        <div
+          class="task-agents"
+        />
+        <div
+          class="task-affected-files"
+        >
+          <span
+            class="task-files"
+            data-files="src/file0.ts"
+          >
+            Files: 
+            src/file0.ts
+          </span>
+        </div>
+      </li>
+    </ul>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.3: Diff_Approval_Widget states should match snapshot for approve highlighted state 1`] = `
+<div>
+  <div
+    class="diff-approval"
+  >
+    <h2>
+      Code Changes
+    </h2>
+    <div
+      class="diff-group"
+      data-task-id="src/test.ts"
+    >
+      <h3
+        class="diff-group-header"
+      >
+        Changes to src/test.ts
+      </h3>
+      <div
+        class="diff-group-summary"
+      >
+        1 file(s), 1 change(s), risk: low
+      </div>
+      <div
+        class="diff-entry"
+        data-change-id="src/test.ts-0"
+      >
+        <div
+          class="diff-header"
+        >
+          <span
+            class="diff-file"
+          >
+            src/test.ts
+          </span>
+          <span
+            class="diff-type type-modify"
+          >
+            modify
+          </span>
+          <span
+            class="diff-risk risk-low"
+          >
+            low
+             risk
+          </span>
+        </div>
+        <div
+          class="diff-reasoning"
+        >
+          Test change reasoning
+        </div>
+        <div
+          class="diff-impact"
+        >
+          <strong>
+            Impact:
+          </strong>
+           
+          Test impact area
+        </div>
+        <div
+          class="diff-content-two-column"
+        >
+          <div
+            class="diff-column diff-old"
+          >
+            <div
+              class="diff-column-header"
+            >
+              Before
+            </div>
+            <div
+              class="diff-line "
+            >
+              old line
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+          </div>
+          <div
+            class="diff-column diff-new"
+          >
+            <div
+              class="diff-column-header"
+            >
+              After
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+            <div
+              class="diff-line "
+            >
+              new line
+            </div>
+          </div>
+        </div>
+        <div
+          class="diff-actions"
+        >
+          <button
+            class="diff-action-approve"
+            disabled=""
+          >
+            Approved
+          </button>
+          <button
+            class="diff-action-reject"
+          >
+            Reject
+          </button>
+          <button
+            class="diff-action-explain"
+          >
+            Explain
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.3: Diff_Approval_Widget states should match snapshot for reject highlighted state 1`] = `
+<div>
+  <div
+    class="diff-approval"
+  >
+    <h2>
+      Code Changes
+    </h2>
+    <div
+      class="diff-group"
+      data-task-id="src/test.ts"
+    >
+      <h3
+        class="diff-group-header"
+      >
+        Changes to src/test.ts
+      </h3>
+      <div
+        class="diff-group-summary"
+      >
+        1 file(s), 1 change(s), risk: low
+      </div>
+      <div
+        class="diff-entry"
+        data-change-id="src/test.ts-0"
+      >
+        <div
+          class="diff-header"
+        >
+          <span
+            class="diff-file"
+          >
+            src/test.ts
+          </span>
+          <span
+            class="diff-type type-modify"
+          >
+            modify
+          </span>
+          <span
+            class="diff-risk risk-low"
+          >
+            low
+             risk
+          </span>
+        </div>
+        <div
+          class="diff-reasoning"
+        >
+          Test change reasoning
+        </div>
+        <div
+          class="diff-impact"
+        >
+          <strong>
+            Impact:
+          </strong>
+           
+          Test impact area
+        </div>
+        <div
+          class="diff-content-two-column"
+        >
+          <div
+            class="diff-column diff-old"
+          >
+            <div
+              class="diff-column-header"
+            >
+              Before
+            </div>
+            <div
+              class="diff-line "
+            >
+              old line
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+          </div>
+          <div
+            class="diff-column diff-new"
+          >
+            <div
+              class="diff-column-header"
+            >
+              After
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+            <div
+              class="diff-line "
+            >
+              new line
+            </div>
+          </div>
+        </div>
+        <div
+          class="diff-actions"
+        >
+          <button
+            class="diff-action-approve"
+          >
+            Approve
+          </button>
+          <button
+            class="diff-action-reject"
+          >
+            Reject
+          </button>
+          <button
+            class="diff-action-explain"
+          >
+            Explain
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.3: Diff_Approval_Widget states should match snapshot for two-column diff view 1`] = `
+<div>
+  <div
+    class="diff-approval"
+  >
+    <h2>
+      Code Changes
+    </h2>
+    <div
+      class="diff-group"
+      data-task-id="src/auth.ts"
+    >
+      <h3
+        class="diff-group-header"
+      >
+        Changes to src/auth.ts
+      </h3>
+      <div
+        class="diff-group-summary"
+      >
+        1 file(s), 1 change(s), risk: low
+      </div>
+      <div
+        class="diff-entry"
+        data-change-id="src/auth.ts-0"
+      >
+        <div
+          class="diff-header"
+        >
+          <span
+            class="diff-file"
+          >
+            src/auth.ts
+          </span>
+          <span
+            class="diff-type type-modify"
+          >
+            modify
+          </span>
+          <span
+            class="diff-risk risk-low"
+          >
+            low
+             risk
+          </span>
+        </div>
+        <div
+          class="diff-reasoning"
+        >
+          Test change reasoning
+        </div>
+        <div
+          class="diff-impact"
+        >
+          <strong>
+            Impact:
+          </strong>
+           
+          Test impact area
+        </div>
+        <div
+          class="diff-content-two-column"
+        >
+          <div
+            class="diff-column diff-old"
+          >
+            <div
+              class="diff-column-header"
+            >
+              Before
+            </div>
+            <div
+              class="diff-line "
+            >
+              old line
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+          </div>
+          <div
+            class="diff-column diff-new"
+          >
+            <div
+              class="diff-column-header"
+            >
+              After
+            </div>
+            <div
+              class="diff-line diff-line-empty"
+            >
+               
+            </div>
+            <div
+              class="diff-line "
+            >
+              new line
+            </div>
+          </div>
+        </div>
+        <div
+          class="diff-actions"
+        >
+          <button
+            class="diff-action-approve"
+          >
+            Approve
+          </button>
+          <button
+            class="diff-action-reject"
+          >
+            Reject
+          </button>
+          <button
+            class="diff-action-explain"
+          >
+            Explain
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.4: Graph_Explorer overlays should match snapshot with agent proposal overlay 1`] = `
+<div>
+  <div
+    class="graph-explorer"
+    data-consistent="true"
+  >
+    <h2>
+      Semantic Graph
+    </h2>
+    <div
+      class="graph-nodes"
+    >
+      <div
+        class="graph-node graph-node-overlay"
+        data-node-id="node-0"
+        data-node-type="function"
+        data-overlay="true"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function0"
+            class="graph-node-expand"
+            data-expand-button="node-0"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-0"
+            role="button"
+            tabindex="0"
+          >
+            function0
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+          <span
+            class="graph-node-overlay-badge"
+            data-overlay-badge="true"
+          >
+            1
+             proposal
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file0.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+      <div
+        class="graph-node graph-node-overlay"
+        data-node-id="node-1"
+        data-node-type="function"
+        data-overlay="true"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function1"
+            class="graph-node-expand"
+            data-expand-button="node-1"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-1"
+            role="button"
+            tabindex="0"
+          >
+            function1
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+          <span
+            class="graph-node-overlay-badge"
+            data-overlay-badge="true"
+          >
+            1
+             proposal
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file1.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+      <div
+        class="graph-node graph-node-overlay"
+        data-node-id="node-5"
+        data-node-type="function"
+        data-overlay="true"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function5"
+            class="graph-node-expand"
+            data-expand-button="node-5"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-5"
+            role="button"
+            tabindex="0"
+          >
+            function5
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+          <span
+            class="graph-node-overlay-badge"
+            data-overlay-badge="true"
+          >
+            1
+             proposal
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file0.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+      <div
+        class="graph-node graph-node-overlay"
+        data-node-id="node-6"
+        data-node-type="function"
+        data-overlay="true"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function6"
+            class="graph-node-expand"
+            data-expand-button="node-6"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-6"
+            role="button"
+            tabindex="0"
+          >
+            function6
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+          <span
+            class="graph-node-overlay-badge"
+            data-overlay-badge="true"
+          >
+            1
+             proposal
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file1.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+    </div>
+    <div
+      class="graph-stats"
+      data-graph-stats="true"
+    >
+      4
+       nodes, 
+      4
+       with proposals
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.4: Graph_Explorer overlays should match snapshot with no overlay 1`] = `
+<div>
+  <div
+    class="graph-explorer"
+    data-consistent="true"
+  >
+    <h2>
+      Semantic Graph
+    </h2>
+    <div
+      class="graph-nodes"
+    >
+      <div
+        class="graph-node "
+        data-node-id="node-0"
+        data-node-type="function"
+        data-overlay="false"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function0"
+            class="graph-node-expand"
+            data-expand-button="node-0"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-0"
+            role="button"
+            tabindex="0"
+          >
+            function0
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file0.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+      <div
+        class="graph-node "
+        data-node-id="node-5"
+        data-node-type="function"
+        data-overlay="false"
+      >
+        <div
+          class="graph-node-header"
+        >
+          <button
+            aria-expanded="false"
+            aria-label="Expand function5"
+            class="graph-node-expand"
+            data-expand-button="node-5"
+          >
+            ▶
+          </button>
+          <span
+            class="graph-node-name"
+            data-node-select="node-5"
+            role="button"
+            tabindex="0"
+          >
+            function5
+          </span>
+          <span
+            class="graph-node-type"
+          >
+            (
+            function
+            )
+          </span>
+        </div>
+        <div
+          class="graph-node-file"
+          data-node-file="true"
+        >
+          src/file0.ts
+          :
+          1
+          -
+          20
+        </div>
+      </div>
+    </div>
+    <div
+      class="graph-stats"
+      data-graph-stats="true"
+    >
+      2
+       nodes, 
+      0
+       with proposals
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.5: Resource_Footer states should match snapshot for degraded state 1`] = `
+<div>
+  <div
+    aria-busy="true"
+    aria-live="polite"
+    class="resource-footer status-degraded"
+  >
+    <div
+      class="resource-footer-block-ui"
+      role="alert"
+    >
+      Status: 
+      degraded
+       (API/vector store unavailable)
+    </div>
+    <span
+      class="resource-footer-tokens"
+    >
+      Tokens: 
+      1500
+    </span>
+    <span
+      class="resource-footer-cost"
+    >
+      Cost: $
+      0.03
+    </span>
+    <span
+      class="resource-footer-status"
+    >
+      Vector Store: 
+      degraded
+    </span>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.5: Resource_Footer states should match snapshot for healthy state 1`] = `
+<div>
+  <div
+    aria-busy="false"
+    aria-live="polite"
+    class="resource-footer status-healthy"
+  >
+    <span
+      class="resource-footer-tokens"
+    >
+      Tokens: 
+      5000
+    </span>
+    <span
+      class="resource-footer-cost"
+    >
+      Cost: $
+      0.03
+    </span>
+    <span
+      class="resource-footer-status"
+    >
+      Vector Store: 
+      healthy
+    </span>
+  </div>
+</div>
+`;
+
+exports[`Visual Regression: Widget Snapshots Requirement 6.5: Resource_Footer states should match snapshot for offline state 1`] = `
+<div>
+  <div
+    aria-busy="true"
+    aria-live="polite"
+    class="resource-footer status-offline"
+  >
+    <div
+      class="resource-footer-block-ui"
+      role="alert"
+    >
+      Status: 
+      offline
+       (API/vector store unavailable)
+    </div>
+    <span
+      class="resource-footer-tokens"
+    >
+      Tokens: 
+      3000
+    </span>
+    <span
+      class="resource-footer-cost"
+    >
+      Cost: $
+      0.03
+    </span>
+    <span
+      class="resource-footer-status"
+    >
+      Vector Store: 
+      offline
+    </span>
+  </div>
+</div>
+`;
