@@ -9,3 +9,4 @@ coverage/
 .nexus/
 qdrant_storage/
 .qdrant_storage/
+.nexus-test-data/
