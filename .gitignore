@@ -10,3 +10,5 @@ coverage/
 qdrant_storage/
 .qdrant_storage/
 .nexus-test-data/
+.kiro/
+.vscode/
