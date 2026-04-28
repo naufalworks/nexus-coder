@@ -12,3 +12,8 @@ qdrant_storage/
 .nexus-test-data/
 .kiro/
 .vscode/
+
+# Temporary test directories
+.tmp-test-coverage/
+__temp_optional_props_test__/
+__temp_pbt_optional_props__/

@@ -21,7 +21,12 @@
     "audit:typescript": "ts-node src/__tests__/audit/typescript-strict.audit.ts",
     "audit:dead-code": "ts-node src/__tests__/audit/dead-code.audit.ts",
     "audit:security": "ts-node src/__tests__/audit/security.audit.ts",
-    "audit:all": "npm run audit:typescript && npm run audit:dead-code && npm run audit:security",
+    "test:pbt": "jest --testPathPattern='\\.pbt\\.test\\.'",
+    "test:audit": "jest --testPathPattern='__tests__/audit'",
+    "audit:architecture": "ts-node src/__tests__/audit/architecture.audit.ts",
+    "audit:performance": "ts-node src/__tests__/audit/performance.audit.ts",
+    "audit:bundle": "ts-node src/__tests__/audit/bundle-size.audit.ts",
+    "audit:all": "npm run audit:typescript && npm run audit:dead-code && npm run audit:security && npm run audit:architecture && npm run audit:performance && npm run audit:bundle",
     "test:qa": "npm run test && npm run test:integration && npm run test:a11y && npm run test:performance && npm run audit:all",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
