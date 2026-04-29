@@ -174,10 +174,19 @@ program
 
 program
   .command('chat')
-  .description('Start interactive agent chat session')
-  .option('--agent <name>', 'Target a specific agent')
+  .description('Start interactive agent chat session with automatic routing')
+  .option('--agent <name>', 'Target a specific agent (enables manual mode)')
   .option('--context <files>', 'Comma-separated list of context files')
-  .action(async (options: { agent?: string; context?: string }) => {
+  .option('--auto', 'Enable automatic agent routing (default)', true)
+  .option('--no-auto', 'Disable automatic agent routing')
+  .option('--full-context', 'Enable full graph context (default)', true)
+  .option('--no-full-context', 'Disable full graph context')
+  .action(async (options: { 
+    agent?: string; 
+    context?: string;
+    auto: boolean;
+    fullContext: boolean;
+  }) => {
     try {
       const svc = await getServices();
       console.log(chalk.cyan('Building Semantic Code Graph...'));
@@ -193,6 +202,8 @@ program
       await chatCommand(chatService, svc.registry, {
         agent: options.agent,
         context: contextFiles,
+        auto: options.auto,
+        fullContext: options.fullContext,
       });
     } catch (error) {
       console.error(chalk.red(`Fatal error: ${error}`));

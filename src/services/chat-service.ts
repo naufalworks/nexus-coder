@@ -14,12 +14,16 @@ import {
   ChatCommand,
   StreamChunk,
   CodeReference,
+  ChatSessionOptions,
 } from '../types/chat';
 import { AgentRegistry, AgentInfo } from '../agents/registry';
 import { UnifiedClient } from '../core/models/unified-client';
 import { ContextEngine } from '../core/context/engine';
 import { GraphTraversal } from '../core/context/graph/traversal';
 import { EventBus, EventType } from '../core/event-bus';
+import { ModelRouter } from '../core/models/router';
+import { IntentClassifier } from './intent-classifier';
+import { GraphContextBuilder } from './graph-context-builder';
 import logger from '../core/logger';
 
 // ---------------------------------------------------------------------------
@@ -72,6 +76,8 @@ export class ChatService {
   private messageQueue: MessageQueueItem[] = [];
   private rateLimitTrackers: Map<string, RateLimitTracker> = new Map();
   private contextCache: Map<string, CachedContext> = new Map();
+  private intentClassifier: IntentClassifier;
+  private graphContextBuilder: GraphContextBuilder;
 
   constructor(
     private agentRegistry: AgentRegistry,
@@ -79,6 +85,16 @@ export class ChatService {
     private contextEngine: ContextEngine,
     private eventBus: EventBus
   ) {
+    // Initialize IntentClassifier and GraphContextBuilder
+    const modelRouter = new ModelRouter(unifiedClient);
+    this.intentClassifier = new IntentClassifier(modelRouter, agentRegistry);
+    
+    const traversal = contextEngine.getTraversal();
+    if (!traversal) {
+      throw new Error('Graph traversal not initialized. Run `nexus init` first.');
+    }
+    this.graphContextBuilder = new GraphContextBuilder(contextEngine, traversal);
+    
     // Periodically clean up expired cache entries
     setInterval(() => this.cleanupExpiredCache(), 60000); // every minute
   }
@@ -88,9 +104,9 @@ export class ChatService {
   // -----------------------------------------------------------------------
 
   /**
-   * Create a new chat session with a specific agent.
+   * Create a new chat session with optional configuration.
    *
-   * @param agentName - Name of the agent to chat with
+   * @param options - Session configuration options (mode, agentName, autoRouting, fullGraphContext)
    * @returns New ChatSession with unique ID, empty history, 'active' status
    *
    * Postconditions:
@@ -98,26 +114,56 @@ export class ChatService {
    *  - Session has empty messages array
    *  - Session status is 'active'
    *  - Session has creation timestamp
+   *  - Session mode is set based on options
+   *  - autoRouting is enabled for auto mode, disabled for manual mode (unless overridden)
+   *  - fullGraphContext is enabled for auto mode, disabled for manual mode (unless overridden)
    */
-  createSession(agentName: string): ChatSession {
-    const agent = this.agentRegistry.getAgent(agentName);
-    if (!agent) {
-      throw new Error(`Agent not found: ${agentName}`);
+  createSession(options: ChatSessionOptions | string): ChatSession {
+    // Handle legacy string parameter (agentName only)
+    let sessionOptions: ChatSessionOptions;
+    if (typeof options === 'string') {
+      sessionOptions = {
+        mode: 'manual',
+        agentName: options,
+        autoRouting: false,
+        fullGraphContext: false,
+      };
+    } else {
+      sessionOptions = options;
+    }
+
+    // Validate agent for manual mode
+    if (sessionOptions.mode === 'manual' && !sessionOptions.agentName) {
+      throw new Error('Agent name is required for manual mode');
+    }
+
+    // Validate agent exists
+    if (sessionOptions.agentName) {
+      const agent = this.agentRegistry.getAgent(sessionOptions.agentName);
+      if (!agent) {
+        throw new Error(`Agent not found: ${sessionOptions.agentName}`);
+      }
     }
 
     const session: ChatSession = {
       id: uuidv4(),
-      agentName,
+      mode: sessionOptions.mode,
+      agentName: sessionOptions.agentName || 'orchestrator',
       messages: [],
       createdAt: new Date(),
       updatedAt: new Date(),
       contextFiles: [],
       contextNodeIds: [],
       status: 'active',
+      autoRouting: sessionOptions.autoRouting ?? (sessionOptions.mode === 'auto'),
+      fullGraphContext: sessionOptions.fullGraphContext ?? (sessionOptions.mode === 'auto'),
+      intentHistory: [],
     };
 
     this.sessions.set(session.id, session);
-    logger.info(`[ChatService] Created session ${session.id} with agent ${agentName}`);
+    logger.info(
+      `[ChatService] Created ${session.mode} session ${session.id} with agent ${session.agentName} (autoRouting: ${session.autoRouting}, fullGraphContext: ${session.fullGraphContext})`
+    );
 
     return session;
   }
@@ -136,6 +182,8 @@ export class ChatService {
    *  - Agent response is appended to session.messages after completion
    *  - CHAT_MESSAGE_SENT event is emitted
    *  - CHAT_RESPONSE_RECEIVED event is emitted on completion
+   *  - If autoRouting enabled, intent is classified and agent may be switched
+   *  - If fullGraphContext enabled, graph context is built and added to command
    */
   async *sendMessage(
     sessionId: string,
@@ -159,6 +207,79 @@ export class ChatService {
       throw new Error(
         `Rate limit exceeded. Please wait ${waitSeconds} seconds before sending another message.`
       );
+    }
+
+    // Auto-routing: classify intent and select agent
+    if (session.autoRouting) {
+      try {
+        const intent = await this.intentClassifier.classify(
+          command.content,
+          session.messages
+        );
+
+        logger.info(
+          `[ChatService] Classified intent: ${intent.intent} (confidence: ${intent.confidence.toFixed(2)})`
+        );
+
+        // Store intent in history
+        if (!session.intentHistory) {
+          session.intentHistory = [];
+        }
+        session.intentHistory.push(intent);
+
+        // Switch agent if needed
+        const previousAgent = session.agentName;
+        if (intent.suggestedAgent !== session.agentName) {
+          session.agentName = intent.suggestedAgent;
+          logger.info(
+            `[ChatService] Switching from ${previousAgent} to ${session.agentName} agent`
+          );
+          
+          // Yield transparency notification
+          yield {
+            sessionId,
+            messageId: uuidv4(),
+            chunk: `Switching to ${session.agentName} agent...\n\n`,
+            isComplete: false,
+          };
+        } else {
+          // Yield routing notification
+          yield {
+            sessionId,
+            messageId: uuidv4(),
+            chunk: `Routing to ${session.agentName}...\n\n`,
+            isComplete: false,
+          };
+        }
+
+        // Build full graph context if enabled
+        if (session.fullGraphContext) {
+          try {
+            const graphContext = await this.graphContextBuilder.buildContext(
+              intent,
+              DEFAULT_MAX_TOKENS
+            );
+
+            logger.info(
+              `[ChatService] Built graph context: ${graphContext.summary}`
+            );
+
+            // Add graph context to command
+            command.graphContext = graphContext;
+          } catch (error) {
+            logger.error(
+              `[ChatService] Error building graph context: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+            // Proceed without graph context
+          }
+        }
+      } catch (error) {
+        logger.warn(
+          `[ChatService] Intent classification failed: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to orchestrator`
+        );
+        // Fall back to orchestrator agent
+        session.agentName = 'orchestrator';
+      }
     }
 
     // Check agent availability

@@ -98,20 +98,49 @@ nexus search "config files" --no-graph
 
 #### Agent Chat Interface
 
-Interactive chat with Nexus agents for code discussions:
+Interactive chat with Nexus agents featuring intelligent auto-routing:
 
 ```bash
-# Start interactive chat session
+# Auto mode (default) - Intelligent agent routing
 nexus chat
 
-# Chat with specific agent
+# Example conversation with auto-routing
+You: Review my authentication code
+AI: [Routes to reviewer agent, analyzes auth files with full context]
+
+You: Now refactor it to use async/await
+AI: [Switches to coder agent, maintains conversation history]
+
+# Manual mode - Specific agent selection
 nexus chat --agent coder-agent
 
-# Chat with file context
+# Chat with file context (manual mode)
 nexus chat --context src/auth.ts,src/db.ts
+
+# Disable auto-routing
+nexus chat --no-auto
+
+# Disable full graph context
+nexus chat --no-full-context
 ```
 
 **Widget**: Press `Ctrl+Shift+C` in the IDE to open the Agent Chat panel.
+
+**How Auto-Routing Works**:
+1. **Intent Classification**: Analyzes your message to determine intent (review, code, refactor, debug, explain, search, git, general)
+2. **Agent Selection**: Automatically routes to the best agent (reviewer, coder, context, git, orchestrator)
+3. **Context Building**: Constructs relevant codebase context from Semantic Code Graph
+4. **Adaptive Scope**: Adjusts context level (full/partial/minimal) based on task type
+
+**Intent Types**:
+- `review` → reviewer agent (full context)
+- `code` → coder agent (partial context)
+- `refactor` → coder agent (full context)
+- `debug` → coder agent (partial context)
+- `explain` → context agent (minimal context)
+- `search` → context agent (partial context)
+- `git` → git agent (minimal context)
+- `general` → orchestrator agent (minimal context)
 
 #### Impact Analysis
 

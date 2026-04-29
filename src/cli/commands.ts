@@ -450,8 +450,10 @@ export async function contextCommand(
 
 /**
  * Chat command: Start an interactive agent chat session
- * Supports --agent for targeting a specific agent
- * and --context for adding files to session context.
+ * Supports --agent for targeting a specific agent (manual mode),
+ * --context for adding files to session context,
+ * --auto/--no-auto for enabling/disabling automatic agent routing,
+ * and --full-context/--no-full-context for enabling/disabling full graph context.
  */
 export async function chatCommand(
   chatService: any,
@@ -459,18 +461,29 @@ export async function chatCommand(
   options: {
     agent?: string;
     context?: string[];
+    auto?: boolean;
+    fullContext?: boolean;
   }
 ): Promise<void> {
   try {
+    // Check if graph is initialized
+    const graph = chatService.contextEngine?.getGraph?.();
+    if (!graph) {
+      throw new Error('Graph not initialized. Run `nexus init` first.');
+    }
+
     // Get available agents
     const agents = registry.listAgents();
     if (agents.length === 0) {
       throw new Error('No agents available. Register agents first.');
     }
 
-    // Select agent
+    // Determine mode based on presence of --agent option
+    const mode = options.agent ? 'manual' : 'auto';
+    
+    // Select agent for manual mode
     let agentName = options.agent;
-    if (!agentName) {
+    if (mode === 'manual' && !agentName) {
       if (agents.length === 1) {
         agentName = agents[0].name;
       } else {
@@ -489,15 +502,31 @@ export async function chatCommand(
       }
     }
 
-    // Verify agent exists
-    const agent = registry.getAgent(agentName);
-    if (!agent) {
-      throw new Error(`Agent not found: ${agentName}. Available: ${agents.map((a: { name: string }) => a.name).join(', ')}`);
+    // Verify agent exists for manual mode
+    if (mode === 'manual' && agentName) {
+      const agent = registry.getAgent(agentName);
+      if (!agent) {
+        throw new Error(`Agent not found: ${agentName}. Available: ${agents.map((a: { name: string }) => a.name).join(', ')}`);
+      }
     }
 
-    // Create session
-    const session = chatService.createSession(agentName);
-    console.log(chalk.bold.cyan(`\n💬 Chat session started with ${chalk.bold(agentName)}`));
+    // Create session with appropriate options
+    const session = chatService.createSession({
+      mode,
+      agentName,
+      autoRouting: options.auto ?? (mode === 'auto'),
+      fullGraphContext: options.fullContext ?? (mode === 'auto'),
+    });
+
+    // Display session information
+    console.log(chalk.bold.green(`\n💬 Chat session started (${mode} mode)`));
+    
+    if (mode === 'auto') {
+      console.log(chalk.dim('Agent will be automatically selected based on your message'));
+    } else {
+      console.log(chalk.dim(`Agent: ${agentName}`));
+    }
+    
     console.log(chalk.dim(`Session ID: ${session.id}`));
     console.log(chalk.dim('Type "exit" or "quit" to end the session\n'));
 
@@ -512,6 +541,8 @@ export async function chatCommand(
 
     // REPL loop
     let messageCount = 0;
+    let currentAgent = agentName || 'auto';
+    
     while (true) {
       const { message } = await inquirer.prompt([
         {
@@ -535,7 +566,9 @@ export async function chatCommand(
         content: message,
       };
 
-      process.stdout.write(`${chalk.bold.blue(agentName)}: `);
+      // In auto mode, the agent name may change, so we display it dynamically
+      const displayAgent = mode === 'auto' ? session.agentName : currentAgent;
+      process.stdout.write(`${chalk.bold.blue(displayAgent)}: `);
       let fullResponse = '';
 
       try {
@@ -545,6 +578,9 @@ export async function chatCommand(
         }
         console.log('\n');
         messageCount++;
+        
+        // Update current agent for next iteration (in case it changed)
+        currentAgent = session.agentName;
       } catch (error) {
         console.error(chalk.red(`\nError: ${error instanceof Error ? error.message : 'Unknown error'}`));
       }

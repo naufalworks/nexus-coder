@@ -40,10 +40,18 @@ User Input
     │ │ Traversal   ││ │Orchestr- │  │ seq-think  │
     │ │ Compression ││ │ator      │  │            │
     │ │ Budgeting   ││ └────┬─────┘  └─────┬──────┘
-    │ └─────────────┘│      │              │
-    │ ┌─────────────┐│      │    ┌─────────┘
-    │ │ Persistent  ││      │    │ (MCP tools available
-    │ │ Memory      ││      │     │  to ALL agents)
+    │ ├─────────────┤│      │              │
+    │ │ Intent      ││      │    ┌─────────┘
+    │ │ Classifier  ││      │    │ (MCP tools available
+    │ │ (Auto-Route)││      │     │  to ALL agents)
+    │ ├─────────────┤│      │
+    │ │ Graph       ││      │
+    │ │ Context     ││      │
+    │ │ Builder     ││      │
+    │ └─────────────┘│      │
+    │ ┌─────────────┐│      │
+    │ │ Persistent  ││      │
+    │ │ Memory      ││      │
     │ │ (cross-sess)││      │
     │ └─────────────┘│      ▼
     └────────────────┘│ ┌────────────────────────────────┐
@@ -56,6 +64,43 @@ User Input
                       │  Claude  GLM-5T  GLM-5T→  (No LLM)
                       │                   Claude
                       └──────────────────────────────────
+```
+
+### 2.1 Intelligent Chat Mode (New in V2)
+
+Nexus V2 introduces intelligent auto-routing for chat sessions, automatically selecting the best agent based on user intent:
+
+**Components**:
+- **IntentClassifier**: Analyzes user messages to determine task intent (review, code, refactor, debug, explain, search, git, general)
+- **GraphContextBuilder**: Constructs relevant codebase context from Semantic Code Graph with adaptive scope
+- **Enhanced ChatService**: Orchestrates intent classification, agent routing, and context building
+
+**Auto-Routing Flow**:
+```
+User Message → Intent Classification → Agent Selection → Context Building → Agent Execution
+```
+
+**Intent Types & Agent Mapping**:
+- `review` → reviewer agent (full context)
+- `code` → coder agent (partial context)
+- `refactor` → coder agent (full context)
+- `debug` → coder agent (partial context)
+- `explain` → context agent (minimal context)
+- `search` → context agent (partial context)
+- `git` → git agent (minimal context)
+- `general` → orchestrator agent (minimal context)
+
+**Performance**:
+- Intent classification: <100ms (pattern matching), <500ms (LLM fallback)
+- Context building: <2s for full graph (304 nodes)
+- Agent routing: <50ms
+
+**CLI Options**:
+```bash
+nexus chat                    # Auto mode (default)
+nexus chat --no-auto          # Disable auto-routing
+nexus chat --no-full-context  # Disable graph context
+nexus chat --agent reviewer   # Manual mode (backward compatible)
 ```
 
 ---
@@ -485,7 +530,7 @@ eventBus.on(EventType.CODE_GENERATED, (code) => {
 - shrink(): remove context when sufficient
 - dynamic adjustment based on task complexity
 
-### Phase 3: Context Engine & Memory (6 files)
+### Phase 3: Context Engine & Memory (8 files)
 
 #### `src/core/context/engine.ts`
 - ContextEngine class — THE BRAIN
@@ -497,6 +542,49 @@ eventBus.on(EventType.CODE_GENERATED, (code) => {
   5. Format as structured context
 - refreshContext(): update when files change
 - getContextDiff(): only what changed since last context
+
+#### `src/services/intent-classifier.ts` (NEW - Intelligent Chat Mode)
+- IntentClassifier class
+- classify(message, history): analyzes user message to determine intent
+- extractKeywords(): extracts keywords from message
+- detectIntentByPattern(): pattern matching for common intents (fast, <100ms)
+- classifyWithLLM(): LLM-based classification for ambiguous cases (<500ms)
+- mapIntentToAgent(): maps intent to appropriate agent
+- determineContextScope(): determines context level (full/partial/minimal)
+- Intent types: review, code, refactor, debug, explain, search, git, general
+- Uses ModelRouter with GLM-5.1 for LLM classification
+- Includes conversation history (last 3 messages) for context-aware classification
+
+#### `src/services/graph-context-builder.ts` (NEW - Intelligent Chat Mode)
+- GraphContextBuilder class
+- buildContext(intent, maxTokens): constructs relevant codebase context
+- selectRelevantNodes(): selects nodes based on context scope
+  - Full scope: all nodes (for review, refactor)
+  - Partial scope: keyword-matched nodes (for code, debug, search)
+  - Minimal scope: entry points only (for explain, git, general)
+- prioritizeNodes(): ranks nodes by relevance score
+- calculateRelevanceScore(): scores based on keyword matching and intent-specific criteria
+- compressContext(): adaptive compression (SIGNATURE → FULL for top 20%)
+- formatNode(): formats node at specified compression level
+- buildSummary(): generates context summary with statistics
+- estimateTokens(): token estimation (length / 4)
+- Token budget enforcement: ensures final context fits within budget
+- Uses ContextEngine and GraphTraversal for graph operations
+
+#### `src/services/chat-service.ts` (ENHANCED - Intelligent Chat Mode)
+- ChatService class (enhanced with auto-routing)
+- createSession(options): creates chat session with auto or manual mode
+- sendMessage(sessionId, command): sends message with optional auto-routing
+- Auto-routing flow:
+  1. Classify intent using IntentClassifier
+  2. Switch agent if suggested agent differs from current
+  3. Build graph context using GraphContextBuilder
+  4. Execute with selected agent
+- Session options: mode (auto/manual), autoRouting, fullGraphContext
+- Preserves conversation history during agent switches
+- Error handling: falls back to orchestrator on classification failure
+- Transparency: logs intent, agent switches, and context summaries
+- Backward compatible with manual mode
 
 #### `src/core/context/memory/persistent.ts`
 - PersistentMemory class
@@ -595,6 +683,14 @@ eventBus.on(EventType.CODE_GENERATED, (code) => {
 - Lazy initialization (only create services when needed)
 - Commands: init, code, status, diff, history, undo, branch, context, clear-context
 - Interactive REPL mode: `nexus chat`
+- Enhanced chat command with intelligent auto-routing:
+  - `--auto` (default): Enable automatic agent routing
+  - `--no-auto`: Disable auto-routing (manual mode)
+  - `--full-context` (default): Enable full graph context
+  - `--no-full-context`: Disable automatic graph context
+  - `--agent <name>`: Select specific agent (enables manual mode)
+- Session mode display: shows "auto" or "manual" mode on startup
+- Graph initialization check: prompts to run `nexus init` if graph not ready
 
 #### `src/cli/approval-ui.ts`
 - Fixed approval flow (V1 was dead code)

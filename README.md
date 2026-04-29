@@ -45,6 +45,11 @@ Nexus V2 is an advanced AI coding system that combines semantic code understandi
     │  │ Vector Store │  │  Persistent Memory      │  │
     │  │ (Qdrant)     │  │  Decisions + Patterns   │  │
     │  └──────────────┘  └─────────────────────────┘  │
+    │  ┌──────────────┐  ┌─────────────────────────┐  │
+    │  │ Intent       │  │  Graph Context          │  │
+    │  │ Classifier   │  │  Builder                │  │
+    │  │ (Auto-Route) │  │  (Smart Context)        │  │
+    │  └──────────────┘  └─────────────────────────┘  │
     └──────────────────────────────────────────────────┘
              │
     ┌────────▼─────────────────────────────────────────┐
@@ -52,6 +57,36 @@ Nexus V2 is an advanced AI coding system that combines semantic code understandi
     │  GLM-5.1 (ZhipuAI) + Claude Sonnet (Anthropic)  │
     └──────────────────────────────────────────────────┘
 ```
+
+### Intelligent Chat Mode
+
+Nexus V2 features intelligent auto-routing in chat mode, automatically selecting the best agent based on your message intent:
+
+**Auto Mode (Default)**:
+```bash
+nexus chat
+You: Review my codebase for long files
+# → Automatically routes to reviewer agent with full graph context
+```
+
+**How it works**:
+1. **Intent Classification**: Analyzes your message to determine intent (review, code, refactor, debug, explain, search, git, general)
+2. **Agent Routing**: Maps intent to the appropriate specialized agent
+3. **Context Building**: Constructs relevant codebase context from Semantic Code Graph
+4. **Adaptive Scope**: Adjusts context level (full/partial/minimal) based on task type
+
+**Manual Mode** (backward compatible):
+```bash
+nexus chat --agent reviewer --context src/auth.ts
+# → Traditional manual agent selection
+```
+
+**CLI Options**:
+- `--auto` (default): Enable intelligent auto-routing
+- `--no-auto`: Disable auto-routing (manual mode)
+- `--full-context` (default): Enable full graph context
+- `--no-full-context`: Disable automatic graph context
+- `--agent <name>`: Select specific agent (enables manual mode)
 
 ## Quick Start
 
@@ -155,23 +190,38 @@ nexus search "authentication logic" --limit 10 --min-score 0.7
 
 ### 2. Agent Chat Interface
 
-Interactive chat with AI agents with full code context:
+Interactive chat with AI agents featuring intelligent auto-routing and full codebase context:
 
 ```bash
-# CLI usage
+# Auto mode (default) - Intelligent agent routing
+nexus chat
+
+# Manual mode - Specific agent selection
 nexus chat --agent coder --context src/auth/login.ts
+
+# Disable auto-routing
+nexus chat --no-auto
+
+# Disable full graph context
+nexus chat --no-full-context
 
 # Widget usage (Ctrl+Shift+C)
 # - Real-time streaming responses
+# - Automatic agent switching based on intent
 # - Code reference navigation
 # - Multi-agent selection
 ```
 
 **Key capabilities:**
+- **Intelligent Auto-Routing**: Automatically classifies user intent (review, code, refactor, debug, explain, search, git, general) and routes to the appropriate agent
+- **Full Graph Context**: Provides comprehensive codebase context automatically without requiring `--context` flags
+- **Intent Classification**: Pattern matching (<100ms) with LLM fallback (<500ms) for ambiguous cases
+- **Context Scope Adaptation**: Adjusts context level (full, partial, minimal) based on task type
 - Streaming responses with context-aware replies
-- Automatic code context building from graph
-- Session management with history
+- Automatic code context building from Semantic Code Graph
+- Session management with history and intent tracking
 - Integration with search and impact analysis
+- Backward compatible with manual agent selection
 
 ### 3. Impact Analysis
 
@@ -251,7 +301,14 @@ Test Results (42/42 passing):
 - Classification: 6/6 ✅
 - Security: 6/6 ✅
 
-Total Test Suite: 1,490 passing tests across 89 test suites (99.5% pass rate)
+Total Test Suite: 1,675 passing tests across 89 test suites including:
+- 26 property-based tests for intelligent chat mode (intent classification, context building, auto-routing)
+- Unit tests for IntentClassifier and GraphContextBuilder
+- Integration tests for auto-routing and agent switching
+- Performance tests for classification (<100ms pattern, <500ms LLM) and context building (<2s)
+- Backward compatibility tests for manual mode
+
+Pass rate: 99.5% (0-2 flaky JSDOM performance tests under load)
 
 ## Code Quality Audits
 

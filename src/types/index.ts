@@ -57,6 +57,10 @@ export {
 } from './search';
 
 export {
+  IntentType,
+  IntentClassification,
+  GraphContext,
+  ChatSessionOptions,
   CodeReference,
   ChatMessage,
   ChatSession,

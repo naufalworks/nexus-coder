@@ -29,10 +29,62 @@ export interface ChatMessage {
   tokenUsage?: { input: number; output: number };
 }
 
+/** Intent types for automatic agent routing */
+export enum IntentType {
+  REVIEW = 'review',
+  CODE = 'code',
+  REFACTOR = 'refactor',
+  DEBUG = 'debug',
+  EXPLAIN = 'explain',
+  SEARCH = 'search',
+  GIT = 'git',
+  GENERAL = 'general',
+}
+
+/** Result of intent classification */
+export interface IntentClassification {
+  /** Classified intent type */
+  intent: IntentType;
+  /** Confidence score (0.0 to 1.0) */
+  confidence: number;
+  /** Keywords extracted from the message */
+  keywords: string[];
+  /** Suggested agent based on intent */
+  suggestedAgent: string;
+  /** Required context scope for this intent */
+  contextScope: 'full' | 'partial' | 'minimal';
+}
+
+/** Graph context built for a chat session */
+export interface GraphContext {
+  /** Selected graph nodes */
+  nodes: Array<import('./graph').SCGNode>;
+  /** Summary of context composition */
+  summary: string;
+  /** Total token count */
+  tokenCount: number;
+  /** Compression ratio (total nodes / full nodes) */
+  compressionRatio: number;
+}
+
+/** Options for creating a chat session */
+export interface ChatSessionOptions {
+  /** Session mode: auto (automatic routing) or manual (fixed agent) */
+  mode: 'auto' | 'manual';
+  /** Agent name (required for manual mode) */
+  agentName?: string;
+  /** Enable automatic agent routing based on intent */
+  autoRouting?: boolean;
+  /** Enable full graph context building */
+  fullGraphContext?: boolean;
+}
+
 /** A chat session with an agent */
 export interface ChatSession {
   /** Unique session ID */
   id: string;
+  /** Session mode */
+  mode?: 'auto' | 'manual';
   /** The agent assigned to this session */
   agentName: string;
   /** Conversation history */
@@ -46,6 +98,12 @@ export interface ChatSession {
   contextNodeIds: string[];
   /** Session status */
   status: 'active' | 'idle' | 'closed';
+  /** Enable automatic agent routing */
+  autoRouting?: boolean;
+  /** Enable full graph context */
+  fullGraphContext?: boolean;
+  /** History of intent classifications */
+  intentHistory?: IntentClassification[];
 }
 
 /** Chat input command */
@@ -54,6 +112,8 @@ export interface ChatCommand {
   content: string;
   targetFile?: string;
   targetNode?: string;
+  /** Graph context for this command (added by auto-routing) */
+  graphContext?: GraphContext;
 }
 
 /** Streaming chunk from agent */
