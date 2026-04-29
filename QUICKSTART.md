@@ -74,6 +74,81 @@ nexus context "authentication flow"
 nexus branch feature/new-auth
 ```
 
+### Advanced Features
+
+#### Semantic Code Search
+
+Search your codebase using natural language with graph-enriched results:
+
+```bash
+# Search with semantic understanding
+nexus search "authentication logic"
+
+# Search with filters
+nexus search "user validation" --file "src/auth" --limit 20
+
+# Search with minimum relevance score
+nexus search "database queries" --min-score 0.7
+
+# Search without graph context (faster)
+nexus search "config files" --no-graph
+```
+
+**Widget**: Press `Ctrl+Shift+F` in the IDE to open the Semantic Search panel.
+
+#### Agent Chat Interface
+
+Interactive chat with Nexus agents for code discussions:
+
+```bash
+# Start interactive chat session
+nexus chat
+
+# Chat with specific agent
+nexus chat --agent coder-agent
+
+# Chat with file context
+nexus chat --context src/auth.ts,src/db.ts
+```
+
+**Widget**: Press `Ctrl+Shift+C` in the IDE to open the Agent Chat panel.
+
+#### Impact Analysis
+
+Analyze the ripple effects of code changes through your dependency graph:
+
+```bash
+# Analyze impact of changing a file
+nexus impact --file src/auth/login.ts
+
+# Analyze impact from a specific graph node
+nexus impact --node "function:authenticate"
+
+# Analyze with custom depth
+nexus impact --file src/api.ts --depth 3
+
+# Output as JSON
+nexus impact --file src/core.ts --json
+```
+
+**Widget**: Press `Ctrl+Shift+I` in the IDE to open the Impact Analysis panel.
+
+#### Command Palette
+
+Quick access to all Nexus commands with fuzzy search:
+
+**Widget**: Press `Ctrl+P` in the IDE to open the Command Palette.
+
+Available commands:
+- `search.open` - Open semantic search
+- `search.query` - Execute search query
+- `chat.open` - Open agent chat
+- `chat.agent` - Select agent
+- `impact.analyze` - Analyze impact
+- `impact.change` - Analyze change impact
+- `nav.graph` - Navigate to graph explorer
+- `nav.tasks` - Navigate to task panel
+
 ### Advanced Usage
 
 ```bash

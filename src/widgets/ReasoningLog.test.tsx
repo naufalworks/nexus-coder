@@ -43,7 +43,7 @@ describe('ReasoningLog - Agent Filtering', () => {
   it('filters messages by selected agent', () => {
     render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     fireEvent.change(agentSelect, { target: { value: 'agent-a' } });
 
     expect(screen.getByText('Decision A')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('ReasoningLog - Agent Filtering', () => {
   it('shows all agents in filter dropdown', () => {
     render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     const options = Array.from(agentSelect.querySelectorAll('option')).map(
       opt => opt.textContent
     );
@@ -69,7 +69,7 @@ describe('ReasoningLog - Agent Filtering', () => {
   it('resets to all messages when "All Agents" is selected', () => {
     render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     
     // First filter by agent-a
     fireEvent.change(agentSelect, { target: { value: 'agent-a' } });
@@ -88,7 +88,7 @@ describe('ReasoningLog - Agent Filtering', () => {
   it('shows no entries message when filter matches nothing', () => {
     const { container } = render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     fireEvent.change(agentSelect, { target: { value: 'agent-a' } });
     
     // Now filter by keyword that doesn't match
@@ -182,7 +182,7 @@ describe('ReasoningLog - Combined Filtering', () => {
   it('applies both agent and keyword filters simultaneously', () => {
     render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     const keywordInput = screen.getByPlaceholderText('Search by keyword...');
     
     fireEvent.change(agentSelect, { target: { value: 'agent-a' } });
@@ -197,7 +197,7 @@ describe('ReasoningLog - Combined Filtering', () => {
   it('shows no entries when combined filters match nothing', () => {
     render(<ReasoningLog log={messages} />);
     
-    const agentSelect = screen.getByRole('combobox', { name: '' });
+    const agentSelect = screen.getByRole('combobox', { name: /filter by agent/i });
     const keywordInput = screen.getByPlaceholderText('Search by keyword...');
     
     fireEvent.change(agentSelect, { target: { value: 'agent-a' } });

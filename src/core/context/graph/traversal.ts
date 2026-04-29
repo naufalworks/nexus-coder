@@ -176,6 +176,10 @@ export class GraphTraversal {
     return results.slice(0, limit).map(r => r.node);
   }
 
+  getNode(nodeId: string): SCGNode | undefined {
+    return this.graph.nodes.get(nodeId);
+  }
+
   getRelatedNodes(nodeId: string, edgeTypes?: EdgeType[], limit: number = 10): SCGNode[] {
     const neighbors = this.getNeighborIds(nodeId, edgeTypes);
     return neighbors

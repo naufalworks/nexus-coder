@@ -22,6 +22,8 @@ export enum EventType {
   AGENT_FAILED = 'agent:failed',
   MODEL_ROUTED = 'model:routed',
   TOKEN_BUDGET_EXCEEDED = 'budget:exceeded',
+  CHAT_MESSAGE_SENT = 'chat:message_sent',
+  CHAT_RESPONSE_RECEIVED = 'chat:response_received',
 }
 
 export interface NexusEvent {

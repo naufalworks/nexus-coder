@@ -236,7 +236,7 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({
   return (
     <div className="agent-status" data-testid="agent-status-dashboard">
       <h2>Agent Status</h2>
-      <ul className="agent-list">
+      <ul className="agent-list" aria-label="List of agents and their status">
         {agents.map(a => {
           const agentProgress = progress[a.name];
           const agentError = errors?.[a.name];
@@ -249,17 +249,20 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({
               data-testid={`agent-item-${a.name}`}
               data-agent-name={a.name}
               data-readiness={readiness}
-              onClick={() => handleClick(a)}
-              role="button"
-              tabIndex={0}
             >
-              <div className="agent-header">
-                <strong className="agent-name">{a.name}</strong>
-                <ReadinessBadge readiness={readiness} />
-              </div>
-              <div className="agent-progress" data-testid={`progress-${a.name}`}>
-                {formatProgress(agentProgress)}
-              </div>
+              <button
+                className="agent-item-button"
+                onClick={() => handleClick(a)}
+                aria-label={`Agent ${a.name}, Status: ${readiness}`}
+              >
+                <div className="agent-header">
+                  <strong className="agent-name">{a.name}</strong>
+                  <ReadinessBadge readiness={readiness} />
+                </div>
+                <div className="agent-progress" data-testid={`progress-${a.name}`}>
+                  {formatProgress(agentProgress)}
+                </div>
+              </button>
               {agentError && (
                 <div
                   className="agent-error"

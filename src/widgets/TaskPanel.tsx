@@ -145,38 +145,41 @@ const TaskItem: React.FC<{
       className="task-item"
       data-task-id={task.id}
       data-task-status={task.status}
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
     >
-      <div className="task-header">
-        <span className="task-instruction">{task.instruction}</span>
-        <span className={`task-status status-${task.status}`}>{task.status}</span>
-      </div>
-      <div className="task-agents">
-        {assignedAgents.length > 0 && (
-          <span className="task-assigned-agents" data-agents={assignedAgents.join(', ')}>
-            Agents: {assignedAgents.join(', ')}
-          </span>
-        )}
-      </div>
-      <div className="task-affected-files">
-        {affectedFiles.length > 0 && (
-          <span className="task-files" data-files={affectedFiles.join(', ')}>
-            Files: {affectedFiles.join(', ')}
-          </span>
-        )}
-      </div>
-      {task.subTasks.length > 0 && (
-        <div className="task-subtasks">
-          {task.subTasks.map(st => (
-            <div key={st.id} className="subtask-item" data-subtask-id={st.id}>
-              <span className="subtask-agent">{st.assignedAgent}</span>
-              <span className={`subtask-status status-${st.status}`}>{st.status}</span>
-            </div>
-          ))}
+      <button
+        className="task-item-button"
+        onClick={handleClick}
+        aria-label={`Task: ${task.instruction}, Status: ${task.status}`}
+      >
+        <div className="task-header">
+          <span className="task-instruction">{task.instruction}</span>
+          <span className={`task-status status-${task.status}`}>{task.status}</span>
         </div>
-      )}
+        <div className="task-agents">
+          {assignedAgents.length > 0 && (
+            <span className="task-assigned-agents" data-agents={assignedAgents.join(', ')}>
+              Agents: {assignedAgents.join(', ')}
+            </span>
+          )}
+        </div>
+        <div className="task-affected-files">
+          {affectedFiles.length > 0 && (
+            <span className="task-files" data-files={affectedFiles.join(', ')}>
+              Files: {affectedFiles.join(', ')}
+            </span>
+          )}
+        </div>
+        {task.subTasks.length > 0 && (
+          <div className="task-subtasks">
+            {task.subTasks.map(st => (
+              <div key={st.id} className="subtask-item" data-subtask-id={st.id}>
+                <span className="subtask-agent">{st.assignedAgent}</span>
+                <span className={`subtask-status status-${st.status}`}>{st.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </button>
     </li>
   );
 });

@@ -192,7 +192,7 @@ describe('Integration: Resource Footer updates on Diff Approval explain action',
       );
       
       // Should show degraded status
-      expect(screen.getByText(/degraded/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/degraded/i).length).toBeGreaterThan(0);
     });
     
     it('should show last known values when offline', () => {
@@ -207,7 +207,7 @@ describe('Integration: Resource Footer updates on Diff Approval explain action',
       
       // Should still show last known token usage
       expect(screen.getByText(/3000/)).toBeInTheDocument();
-      expect(screen.getByText(/offline/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/offline/i).length).toBeGreaterThan(0);
     });
   });
 });

@@ -88,11 +88,13 @@ describe('Integration: Task Panel selection filters Graph Explorer', () => {
       );
       
       // Should display both tasks
-      expect(screen.getByText(task1.instruction)).toBeInTheDocument();
-      expect(screen.getByText(task2.instruction)).toBeInTheDocument();
+      const task1Elements = screen.getAllByText(task1.instruction);
+      const task2Elements = screen.getAllByText(task2.instruction);
+      expect(task1Elements.length).toBeGreaterThan(0);
+      expect(task2Elements.length).toBeGreaterThan(0);
       
       // Simulate task selection
-      const taskItems = screen.getAllByRole('button', { name: /task-/i });
+      const taskItems = screen.getAllByRole('button', { name: /Task:/i });
       if (taskItems.length > 0) {
         fireEvent.click(taskItems[0]);
         

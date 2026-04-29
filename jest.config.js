@@ -23,4 +23,7 @@ module.exports = {
     '^@agents/(.*)$': '<rootDir>/src/agents/$1',
     '^@types/(.*)$': '<rootDir>/src/types/$1',
   },
+  transformIgnorePatterns: [
+    'node_modules/(?!(inquirer|chalk|ora)/)',
+  ],
 };

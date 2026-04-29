@@ -206,6 +206,8 @@ describe('Visual Regression: Widget Snapshots', () => {
       // This test documents that snapshots will fail on structural changes
       // Jest will show the diff between baseline and current
       const task = makeTaskWithChanges(1);
+      // Override random ID with deterministic one for snapshot stability
+      task.id = 'task-snapshot-test';
       
       const { container } = render(
         <TaskPanel

@@ -27,6 +27,9 @@ import {
   reviewCommand,
   graphCommand,
   contextCommand,
+  searchCommand,
+  chatCommand,
+  impactCommand,
   CLIContext,
 } from './commands';
 
@@ -169,14 +172,26 @@ program
 
 program
   .command('chat')
-  .description('Start interactive mode')
-  .action(async () => {
+  .description('Start interactive agent chat session')
+  .option('--agent <name>', 'Target a specific agent')
+  .option('--context <files>', 'Comma-separated list of context files')
+  .action(async (options: { agent?: string; context?: string }) => {
     try {
       const svc = await getServices();
       console.log(chalk.cyan('Building Semantic Code Graph...'));
       await svc.contextEngine.initialize(process.cwd());
-      const interactive = new InteractiveMode(svc.orchestrator, svc.modelRouter);
-      await interactive.start();
+
+      const { ChatService } = await import('../services/chat-service');
+      const chatService = new ChatService(svc.registry, svc.client, svc.contextEngine, svc.eventBus);
+
+      const contextFiles = options.context
+        ? options.context.split(',').map(f => f.trim())
+        : undefined;
+
+      await chatCommand(chatService, svc.registry, {
+        agent: options.agent,
+        context: contextFiles,
+      });
     } catch (error) {
       console.error(chalk.red(`Fatal error: ${error}`));
       process.exit(1);
@@ -367,6 +382,76 @@ program
       const svc = await getServices();
       const context = buildCLIContext(svc);
       await contextCommand(context, { taskId: options.taskId });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('search <query>')
+  .description('Semantic code search')
+  .option('--limit <n>', 'Maximum results to return', parseInt, 10)
+  .option('--min-score <score>', 'Minimum relevance score threshold', parseFloat, 0.5)
+  .option('--no-graph', 'Disable graph context enrichment')
+  .option('--file <pattern>', 'Filter by file pattern')
+  .option('--type <type>', 'Filter by result type')
+  .action(async (query: string, options) => {
+    try {
+      const svc = await getServices();
+      await svc.contextEngine.initialize(process.cwd());
+
+      const vectorStore = svc.contextEngine.getVectorStore();
+      const traversal = svc.contextEngine.getTraversal();
+
+      if (!vectorStore) {
+        throw new Error('Vector store not available. Run "nexus init" first.');
+      }
+      if (!traversal) {
+        throw new Error('Graph traversal not available. Run "nexus init" first.');
+      }
+
+      await searchCommand(vectorStore, traversal, query, {
+        limit: options.limit,
+        minScore: options.minScore,
+        graph: options.graph,
+        file: options.file,
+        type: options.type,
+      });
+    } catch (error) {
+      console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('impact')
+  .description('Analyze code change impact')
+  .option('--file <path>', 'File path to analyze')
+  .option('--node <id>', 'Graph node ID to analyze')
+  .option('--depth <n>', 'Maximum traversal depth', parseInt, 4)
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    try {
+      const svc = await getServices();
+      await svc.contextEngine.initialize(process.cwd());
+
+      const graph = svc.contextEngine.getGraph();
+      const traversal = svc.contextEngine.getTraversal();
+
+      if (!graph) {
+        throw new Error('Graph not available. Run `nexus init` first.');
+      }
+      if (!traversal) {
+        throw new Error('Graph traversal not available. Run `nexus init` first.');
+      }
+
+      await impactCommand(null, graph, traversal, {
+        file: options.file,
+        node: options.node,
+        depth: options.depth,
+        json: options.json,
+      });
     } catch (error) {
       console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
       process.exit(1);

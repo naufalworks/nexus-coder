@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, createContext, useContext } from 'react';
+import React, { ReactNode, useState, createContext, useContext, useEffect } from 'react';
 
 /**
  * WidgetMount: Describes a mounted widget instance in the IDE shell.
@@ -156,6 +156,93 @@ export const WidgetRegion: React.FC<{
           <div className="widget-content">{w.component}</div>
         </div>
       ))}
+    </div>
+  );
+};
+
+/**
+ * Toggle state for feature widgets accessible via keyboard shortcuts.
+ */
+export interface WidgetToggleState {
+  /** Whether the Command Palette is open (Ctrl+P) */
+  commandPaletteOpen: boolean;
+  /** Whether Semantic Search is open (Ctrl+Shift+F) */
+  semanticSearchOpen: boolean;
+  /** Whether Agent Chat is open (Ctrl+Shift+C) */
+  agentChatOpen: boolean;
+  /** Whether Impact Analysis is open (Ctrl+Shift+I) */
+  impactAnalysisOpen: boolean;
+}
+
+/** Default toggle state with all panels closed */
+export const DEFAULT_TOGGLE_STATE: WidgetToggleState = {
+  commandPaletteOpen: false,
+  semanticSearchOpen: false,
+  agentChatOpen: false,
+  impactAnalysisOpen: false,
+};
+
+/**
+ * IDEShell: Main IDE layout component that integrates all feature widgets
+ * with keyboard shortcut support for toggling panels.
+ *
+ * Keyboard Shortcuts:
+ * - Ctrl+P: Toggle Command Palette
+ * - Ctrl+Shift+F: Toggle Semantic Search
+ * - Ctrl+Shift+C: Toggle Agent Chat
+ * - Ctrl+Shift+I: Toggle Impact Analysis
+ */
+export const IDEShell: React.FC<{
+  children?: ReactNode;
+}> = ({ children }) => {
+  const [toggleState, setToggleState] = useState<WidgetToggleState>(DEFAULT_TOGGLE_STATE);
+
+  const toggle = (key: keyof WidgetToggleState) => {
+    setToggleState(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+
+      if (!ctrl) return;
+
+      // Ctrl+P: Toggle Command Palette
+      if (e.key === 'p' && !shift) {
+        e.preventDefault();
+        toggle('commandPaletteOpen');
+      }
+      // Ctrl+Shift+F: Toggle Semantic Search
+      else if (e.key === 'F' && shift) {
+        e.preventDefault();
+        toggle('semanticSearchOpen');
+      }
+      // Ctrl+Shift+C: Toggle Agent Chat
+      else if (e.key === 'C' && shift) {
+        e.preventDefault();
+        toggle('agentChatOpen');
+      }
+      // Ctrl+Shift+I: Toggle Impact Analysis
+      else if (e.key === 'I' && shift) {
+        e.preventDefault();
+        toggle('impactAnalysisOpen');
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  return (
+    <div className="ide-shell" data-testid="ide-shell">
+      <div className="ide-shell-toggle-state" data-testid="toggle-state">
+        <span data-testid="command-palette-state">{toggleState.commandPaletteOpen ? 'open' : 'closed'}</span>
+        <span data-testid="semantic-search-state">{toggleState.semanticSearchOpen ? 'open' : 'closed'}</span>
+        <span data-testid="agent-chat-state">{toggleState.agentChatOpen ? 'open' : 'closed'}</span>
+        <span data-testid="impact-analysis-state">{toggleState.impactAnalysisOpen ? 'open' : 'closed'}</span>
+      </div>
+      {children}
     </div>
   );
 };

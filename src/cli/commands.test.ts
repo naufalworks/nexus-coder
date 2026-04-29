@@ -7,6 +7,7 @@ import {
   reviewCommand,
   graphCommand,
   contextCommand,
+  searchCommand,
   CLIContext,
 } from './commands';
 import {
@@ -517,6 +518,150 @@ describe('CLI Commands', () => {
 
       expect(mockConsoleError).toHaveBeenCalledWith(
         expect.stringContaining('Task not found')
+      );
+    });
+  });
+
+  describe('searchCommand', () => {
+    it('should execute semantic search and display results', async () => {
+      const mockVectorStore = {
+        search: jest.fn().mockResolvedValue([
+          {
+            id: 'result-1',
+            content: 'function validateToken(token: string): boolean { return true; }',
+            relevance: 0.85,
+            metadata: {
+              file: 'src/auth.ts',
+              line: 10,
+              type: 'code',
+              source: 'vector',
+              timestamp: new Date(),
+            },
+          },
+        ]),
+        isAvailable: jest.fn().mockReturnValue(true),
+      };
+
+      const mockTraversal = {
+        getRelatedNodes: jest.fn().mockReturnValue([]),
+        findByName: jest.fn().mockReturnValue([]),
+      };
+
+      await searchCommand(mockVectorStore, mockTraversal, 'authentication', {
+        limit: 10,
+        minScore: 0.5,
+        graph: true,
+      });
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('Search Results for: "authentication"')
+      );
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('src/auth.ts')
+      );
+    });
+
+    it('should handle no results gracefully', async () => {
+      const mockVectorStore = {
+        search: jest.fn().mockResolvedValue([]),
+        isAvailable: jest.fn().mockReturnValue(true),
+      };
+
+      const mockTraversal = {
+        getRelatedNodes: jest.fn().mockReturnValue([]),
+        findByName: jest.fn().mockReturnValue([]),
+      };
+
+      await searchCommand(mockVectorStore, mockTraversal, 'nonexistent', {
+        limit: 10,
+        minScore: 0.5,
+        graph: true,
+      });
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('No results found')
+      );
+    });
+
+    it('should respect limit option', async () => {
+      const mockVectorStore = {
+        search: jest.fn().mockResolvedValue([
+          {
+            id: 'result-1',
+            content: 'result 1',
+            relevance: 0.9,
+            metadata: { file: 'file1.ts', line: 1, type: 'code', source: 'vector', timestamp: new Date() },
+          },
+        ]),
+        isAvailable: jest.fn().mockReturnValue(true),
+      };
+
+      const mockTraversal = {
+        getRelatedNodes: jest.fn().mockReturnValue([]),
+        findByName: jest.fn().mockReturnValue([]),
+      };
+
+      await searchCommand(mockVectorStore, mockTraversal, 'test', {
+        limit: 1,
+        minScore: 0.5,
+        graph: false,
+      });
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('Search Results')
+      );
+    });
+
+    it('should handle search errors', async () => {
+      const mockVectorStore = {
+        search: jest.fn().mockRejectedValue(new Error('Vector store unavailable')),
+        isAvailable: jest.fn().mockReturnValue(true),
+      };
+
+      const mockTraversal = {
+        getRelatedNodes: jest.fn().mockReturnValue([]),
+        findByName: jest.fn().mockReturnValue([]),
+      };
+
+      await expect(async () => {
+        await searchCommand(mockVectorStore, mockTraversal, 'test', {
+          limit: 10,
+          minScore: 0.5,
+          graph: true,
+        });
+      }).rejects.toThrow('Process.exit mock');
+
+      expect(mockConsoleError).toHaveBeenCalledWith(
+        expect.stringContaining('Error:')
+      );
+    });
+
+    it('should disable graph context when --no-graph is used', async () => {
+      const mockVectorStore = {
+        search: jest.fn().mockResolvedValue([
+          {
+            id: 'result-1',
+            content: 'test content',
+            relevance: 0.85,
+            metadata: { file: 'test.ts', line: 1, type: 'code', source: 'vector', timestamp: new Date() },
+          },
+        ]),
+        isAvailable: jest.fn().mockReturnValue(true),
+      };
+
+      const mockTraversal = {
+        getRelatedNodes: jest.fn().mockReturnValue([]),
+        findByName: jest.fn().mockReturnValue([]),
+      };
+
+      await searchCommand(mockVectorStore, mockTraversal, 'test', {
+        limit: 10,
+        minScore: 0.5,
+        graph: false,
+      });
+
+      expect(mockConsoleLog).toHaveBeenCalledWith(
+        expect.stringContaining('Search Results')
       );
     });
   });

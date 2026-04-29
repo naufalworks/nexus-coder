@@ -7,7 +7,10 @@ import {
   WidgetMount,
   WidgetSystemControl,
   useWidgetSystem,
-  LayoutRegion
+  LayoutRegion,
+  IDEShell,
+  WidgetToggleState,
+  DEFAULT_TOGGLE_STATE
 } from './IDEShell';
 import {
   Task,
@@ -553,5 +556,151 @@ describe('Widget Layout System', () => {
 
     const region = container.querySelector('.widget-region');
     expect(region).toHaveStyle('flex-direction: row');
+  });
+});
+
+describe('IDEShell Keyboard Shortcuts', () => {
+  /** Validates: Requirements 4.1, 11.1, 16.1, 21.2 */
+
+  it('renders IDEShell with default toggle state (all closed)', () => {
+    render(<IDEShell />);
+
+    expect(screen.getByTestId('ide-shell')).toBeInTheDocument();
+    expect(screen.getByTestId('command-palette-state')).toHaveTextContent('closed');
+    expect(screen.getByTestId('semantic-search-state')).toHaveTextContent('closed');
+    expect(screen.getByTestId('agent-chat-state')).toHaveTextContent('closed');
+    expect(screen.getByTestId('impact-analysis-state')).toHaveTextContent('closed');
+  });
+
+  it('toggles Command Palette with Ctrl+P', () => {
+    render(<IDEShell />);
+
+    const paletteState = screen.getByTestId('command-palette-state');
+    expect(paletteState).toHaveTextContent('closed');
+
+    // Press Ctrl+P
+    fireEvent.keyDown(document, { key: 'p', ctrlKey: true });
+    expect(paletteState).toHaveTextContent('open');
+
+    // Press Ctrl+P again to close
+    fireEvent.keyDown(document, { key: 'p', ctrlKey: true });
+    expect(paletteState).toHaveTextContent('closed');
+  });
+
+  it('toggles Semantic Search with Ctrl+Shift+F', () => {
+    render(<IDEShell />);
+
+    const searchState = screen.getByTestId('semantic-search-state');
+    expect(searchState).toHaveTextContent('closed');
+
+    // Press Ctrl+Shift+F
+    fireEvent.keyDown(document, { key: 'F', ctrlKey: true, shiftKey: true });
+    expect(searchState).toHaveTextContent('open');
+
+    // Press Ctrl+Shift+F again to close
+    fireEvent.keyDown(document, { key: 'F', ctrlKey: true, shiftKey: true });
+    expect(searchState).toHaveTextContent('closed');
+  });
+
+  it('toggles Agent Chat with Ctrl+Shift+C', () => {
+    render(<IDEShell />);
+
+    const chatState = screen.getByTestId('agent-chat-state');
+    expect(chatState).toHaveTextContent('closed');
+
+    // Press Ctrl+Shift+C
+    fireEvent.keyDown(document, { key: 'C', ctrlKey: true, shiftKey: true });
+    expect(chatState).toHaveTextContent('open');
+
+    // Press Ctrl+Shift+C again to close
+    fireEvent.keyDown(document, { key: 'C', ctrlKey: true, shiftKey: true });
+    expect(chatState).toHaveTextContent('closed');
+  });
+
+  it('toggles Impact Analysis with Ctrl+Shift+I', () => {
+    render(<IDEShell />);
+
+    const impactState = screen.getByTestId('impact-analysis-state');
+    expect(impactState).toHaveTextContent('closed');
+
+    // Press Ctrl+Shift+I
+    fireEvent.keyDown(document, { key: 'I', ctrlKey: true, shiftKey: true });
+    expect(impactState).toHaveTextContent('open');
+
+    // Press Ctrl+Shift+I again to close
+    fireEvent.keyDown(document, { key: 'I', ctrlKey: true, shiftKey: true });
+    expect(impactState).toHaveTextContent('closed');
+  });
+
+  it('supports Cmd key on macOS (metaKey) for shortcuts', () => {
+    render(<IDEShell />);
+
+    const paletteState = screen.getByTestId('command-palette-state');
+    expect(paletteState).toHaveTextContent('closed');
+
+    // Press Cmd+P (metaKey instead of ctrlKey)
+    fireEvent.keyDown(document, { key: 'p', metaKey: true });
+    expect(paletteState).toHaveTextContent('open');
+  });
+
+  it('does not trigger shortcuts without Ctrl/Cmd key', () => {
+    render(<IDEShell />);
+
+    const paletteState = screen.getByTestId('command-palette-state');
+    const searchState = screen.getByTestId('semantic-search-state');
+
+    // Press 'p' without Ctrl
+    fireEvent.keyDown(document, { key: 'p' });
+    expect(paletteState).toHaveTextContent('closed');
+
+    // Press 'F' without Ctrl
+    fireEvent.keyDown(document, { key: 'F', shiftKey: true });
+    expect(searchState).toHaveTextContent('closed');
+  });
+
+  it('does not trigger Ctrl+Shift+F when only Ctrl+F is pressed', () => {
+    render(<IDEShell />);
+
+    const searchState = screen.getByTestId('semantic-search-state');
+
+    // Press Ctrl+F (without Shift)
+    fireEvent.keyDown(document, { key: 'F', ctrlKey: true });
+    expect(searchState).toHaveTextContent('closed');
+  });
+
+  it('allows multiple panels to be open simultaneously', () => {
+    render(<IDEShell />);
+
+    // Open Command Palette
+    fireEvent.keyDown(document, { key: 'p', ctrlKey: true });
+    expect(screen.getByTestId('command-palette-state')).toHaveTextContent('open');
+
+    // Open Semantic Search
+    fireEvent.keyDown(document, { key: 'F', ctrlKey: true, shiftKey: true });
+    expect(screen.getByTestId('semantic-search-state')).toHaveTextContent('open');
+
+    // Both should be open
+    expect(screen.getByTestId('command-palette-state')).toHaveTextContent('open');
+    expect(screen.getByTestId('semantic-search-state')).toHaveTextContent('open');
+  });
+
+  it('cleans up keyboard event listeners on unmount', () => {
+    const { unmount } = render(<IDEShell />);
+
+    const removeEventListenerSpy = jest.spyOn(document, 'removeEventListener');
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('keydown', expect.any(Function));
+    removeEventListenerSpy.mockRestore();
+  });
+
+  it('renders children inside IDEShell', () => {
+    render(
+      <IDEShell>
+        <div>Child Content</div>
+      </IDEShell>
+    );
+
+    expect(screen.getByText('Child Content')).toBeInTheDocument();
   });
 });

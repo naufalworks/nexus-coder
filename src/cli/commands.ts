@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { Task, CodeChange, AgentInfo, TaskStatus, AgentMessage, SemanticCodeGraphData } from '../types';
+import inquirer from 'inquirer';
+import { Task, CodeChange, ChangeType, AgentInfo, TaskStatus, AgentMessage, SemanticCodeGraphData } from '../types';
 import { filterTasks, applyApprovalAction, getAssignedAgents, getAffectedFiles } from '../widgets/TaskPanel';
 import { groupChangesByTask, calculateImpactSummary, parseDiffToColumns } from '../widgets/DiffApproval';
 import { getRelevantNodeIds, getRelatedNodes, enrichNodes, getOverlayMapping } from '../widgets/GraphExplorer';
@@ -442,6 +443,460 @@ export async function contextCommand(
       console.log(`  Cost: $${task.tokenUsage.estimatedCost.toFixed(4)}`);
     }
   } catch (error) {
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Chat command: Start an interactive agent chat session
+ * Supports --agent for targeting a specific agent
+ * and --context for adding files to session context.
+ */
+export async function chatCommand(
+  chatService: any,
+  registry: any,
+  options: {
+    agent?: string;
+    context?: string[];
+  }
+): Promise<void> {
+  try {
+    // Get available agents
+    const agents = registry.listAgents();
+    if (agents.length === 0) {
+      throw new Error('No agents available. Register agents first.');
+    }
+
+    // Select agent
+    let agentName = options.agent;
+    if (!agentName) {
+      if (agents.length === 1) {
+        agentName = agents[0].name;
+      } else {
+        const answer = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'agent',
+            message: 'Select an agent to chat with:',
+            choices: agents.map((a: { name: string; capabilities: string[] }) => ({
+              name: `${a.name} (${a.capabilities.join(', ')})`,
+              value: a.name,
+            })),
+          },
+        ]);
+        agentName = answer.agent;
+      }
+    }
+
+    // Verify agent exists
+    const agent = registry.getAgent(agentName);
+    if (!agent) {
+      throw new Error(`Agent not found: ${agentName}. Available: ${agents.map((a: { name: string }) => a.name).join(', ')}`);
+    }
+
+    // Create session
+    const session = chatService.createSession(agentName);
+    console.log(chalk.bold.cyan(`\n💬 Chat session started with ${chalk.bold(agentName)}`));
+    console.log(chalk.dim(`Session ID: ${session.id}`));
+    console.log(chalk.dim('Type "exit" or "quit" to end the session\n'));
+
+    // Add context files if provided
+    if (options.context && options.context.length > 0) {
+      for (const file of options.context) {
+        session.contextFiles.push(file);
+        console.log(chalk.dim(`Added context file: ${file}`));
+      }
+      console.log();
+    }
+
+    // REPL loop
+    let messageCount = 0;
+    while (true) {
+      const { message } = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'message',
+          message: `${chalk.bold.green('You')}:`,
+          prefix: '',
+        },
+      ]);
+
+      if (!message.trim()) continue;
+      if (message.toLowerCase() === 'exit' || message.toLowerCase() === 'quit') {
+        console.log(chalk.dim('\nSession ended.'));
+        chatService.closeSession(session.id);
+        break;
+      }
+
+      // Send message and stream response
+      const command = {
+        type: 'message' as const,
+        content: message,
+      };
+
+      process.stdout.write(`${chalk.bold.blue(agentName)}: `);
+      let fullResponse = '';
+
+      try {
+        for await (const chunk of chatService.sendMessage(session.id, command)) {
+          process.stdout.write(chunk.chunk);
+          fullResponse += chunk.chunk;
+        }
+        console.log('\n');
+        messageCount++;
+      } catch (error) {
+        console.error(chalk.red(`\nError: ${error instanceof Error ? error.message : 'Unknown error'}`));
+      }
+    }
+
+    console.log(chalk.dim(`Messages exchanged: ${messageCount}`));
+  } catch (error) {
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Search command: Perform semantic code search
+ * Mirrors SemanticSearch widget functionality
+ */
+export async function searchCommand(
+  vectorStore: any,
+  traversal: any,
+  query: string,
+  options: {
+    limit?: number;
+    minScore?: number;
+    graph?: boolean;
+    file?: string;
+    type?: string;
+  }
+): Promise<void> {
+  const spinner = ora('Searching...').start();
+
+  try {
+    // Lazy import to avoid circular dependencies
+    const { SemanticSearchService } = await import('../services/search-service');
+    const { SearchResultType } = await import('../types/search');
+
+    const searchService = new SemanticSearchService();
+
+    // Build search query
+    const searchQuery = {
+      text: query,
+      limit: options.limit ?? 10,
+      minScore: options.minScore ?? 0.5,
+      fileFilter: options.file,
+      typeFilter: options.type as any,
+      includeGraphContext: options.graph ?? true,
+    };
+
+    // Execute search
+    const response = await searchService.executeSearch(
+      searchQuery,
+      vectorStore,
+      traversal
+    );
+
+    spinner.succeed(`Found ${response.results.length} result(s) in ${response.searchTimeMs}ms`);
+
+    if (response.results.length === 0) {
+      console.log(chalk.yellow('\nNo results found'));
+      return;
+    }
+
+    // Display results
+    console.log(chalk.bold.cyan(`\nSearch Results for: "${query}"`));
+    console.log(chalk.dim(`Total matches: ${response.totalMatches}, Graph nodes explored: ${response.graphNodesExplored}`));
+
+    for (let i = 0; i < response.results.length; i++) {
+      const result = response.results[i];
+      
+      console.log(chalk.bold(`\n${i + 1}. ${chalk.cyan(result.file)}:${result.lineRange.start}-${result.lineRange.end}`));
+      console.log(chalk.dim(`   Type: ${result.matchType} | Score: ${result.relevanceScore.toFixed(3)}`));
+      
+      // Display content snippet (truncate if too long)
+      const snippet = result.content.length > 200 
+        ? result.content.substring(0, 200) + '...' 
+        : result.content;
+      console.log(`   ${snippet.split('\n').join('\n   ')}`);
+
+      // Display graph context if available
+      if (result.graphContext.length > 0) {
+        console.log(chalk.dim(`   Graph context: ${result.graphContext.length} related node(s)`));
+        
+        if (options.graph) {
+          for (const ctx of result.graphContext.slice(0, 3)) {
+            console.log(chalk.dim(`     → ${ctx.relationship}: ${ctx.node.name} (distance: ${ctx.distance})`));
+          }
+          if (result.graphContext.length > 3) {
+            console.log(chalk.dim(`     ... and ${result.graphContext.length - 3} more`));
+          }
+        }
+      }
+    }
+
+    console.log(); // Empty line at end
+  } catch (error) {
+    spinner.fail('Search failed');
+    console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    process.exit(1);
+  }
+}
+
+/**
+ * Impact command: Analyze code change impact
+ * Mirrors ImpactAnalysis widget functionality
+ */
+export async function impactCommand(
+  impactService: any,
+  graph: SemanticCodeGraphData,
+  traversal: any,
+  options: {
+    file?: string;
+    node?: string;
+    depth?: number;
+    json?: boolean;
+  }
+): Promise<void> {
+  const spinner = ora('Analyzing impact...').start();
+
+  try {
+    // Lazy import to avoid circular dependencies
+    const { ImpactAnalysisService } = await import('../services/impact-service');
+    const { ImpactSeverity } = await import('../types/impact');
+    const { ChangeType } = await import('../types/task');
+
+    // Validate options
+    if (!options.file && !options.node) {
+      spinner.fail('Analysis failed');
+      console.error(chalk.red('Error: Either --file or --node must be provided'));
+      process.exit(1);
+      return;
+    }
+
+    // Check if graph is available
+    if (!graph || graph.nodes.size === 0) {
+      spinner.fail('Analysis failed');
+      console.error(chalk.red('Error: Graph not available. Run `nexus init` first.'));
+      process.exit(1);
+      return;
+    }
+
+    const service = impactService || new ImpactAnalysisService();
+    const maxDepth = options.depth ?? 4;
+
+    let analysis;
+
+    if (options.node) {
+      // Analyze from node
+      const node = traversal.getNode(options.node);
+      if (!node) {
+        spinner.fail('Analysis failed');
+        console.error(chalk.red(`Error: Node not found: ${options.node}. Run \`nexus init\` to rebuild graph.`));
+        process.exit(1);
+        return;
+      }
+
+      analysis = service.analyzeNode(options.node, graph, traversal, maxDepth);
+    } else if (options.file) {
+      // Analyze from file
+      const change = {
+        file: options.file,
+        type: ChangeType.MODIFY,
+        reasoning: `Analyzing impact of changes to ${options.file}`,
+        impact: [],
+        risk: 'medium' as const,
+        diff: '',
+        content: '',
+        approved: false,
+      };
+
+      analysis = service.analyzeChange(change, graph, traversal, maxDepth);
+
+      // Check if file was found
+      if (!analysis.seedNodeId) {
+        spinner.fail('Analysis failed');
+        console.error(chalk.red(`Error: File not found in graph: ${options.file}. Run \`nexus init\` to rebuild graph.`));
+        process.exit(1);
+        return;
+      }
+    }
+
+    spinner.succeed('Analysis complete');
+
+    // Output results
+    if (options.json) {
+      // JSON output
+      const jsonOutput = {
+        seedNodeId: analysis.seedNodeId,
+        directImpacts: analysis.directImpacts.map((impact: any) => ({
+          nodeId: impact.node.id,
+          nodeName: impact.node.name,
+          file: impact.node.file,
+          line: impact.node.line,
+          distance: impact.distance,
+          severity: impact.severity,
+          reason: impact.reason,
+        })),
+        transitiveImpacts: analysis.transitiveImpacts.map((impact: any) => ({
+          nodeId: impact.node.id,
+          nodeName: impact.node.name,
+          file: impact.node.file,
+          line: impact.node.line,
+          distance: impact.distance,
+          severity: impact.severity,
+          reason: impact.reason,
+        })),
+        affectedTests: analysis.affectedTests.map((test: any) => ({
+          nodeId: test.node.id,
+          nodeName: test.node.name,
+          file: test.node.file,
+          line: test.node.line,
+        })),
+        riskAssessment: {
+          overall: analysis.riskAssessment.overall,
+          score: analysis.riskAssessment.score,
+          directImpactCount: analysis.riskAssessment.directImpactCount,
+          transitiveImpactCount: analysis.riskAssessment.transitiveImpactCount,
+          affectedTestCount: analysis.riskAssessment.affectedTestCount,
+          affectedFileCount: analysis.riskAssessment.affectedFileCount,
+          reasoning: analysis.riskAssessment.reasoning,
+        },
+        stats: {
+          nodesTraversed: analysis.stats.nodesTraversed,
+          edgesFollowed: analysis.stats.edgesFollowed,
+          maxDepthReached: analysis.stats.maxDepthReached,
+          analysisTimeMs: analysis.stats.analysisTimeMs,
+        },
+      };
+
+      console.log(JSON.stringify(jsonOutput, null, 2));
+    } else {
+      // Human-readable output
+      const sourceFile = options.file || analysis.seedChange?.file || 'unknown';
+      
+      console.log(chalk.bold.cyan(`\nImpact Analysis: ${sourceFile}`));
+      console.log(chalk.dim('━'.repeat(80)));
+      console.log();
+
+      // Risk assessment
+      const riskEmoji: Record<string, string> = {
+        [ImpactSeverity.CRITICAL]: '🔴',
+        [ImpactSeverity.HIGH]: '🟠',
+        [ImpactSeverity.MEDIUM]: '🟡',
+        [ImpactSeverity.LOW]: '🔵',
+        [ImpactSeverity.INFO]: '⚪',
+      };
+
+      const riskColor: Record<string, 'red' | 'yellow' | 'blue' | 'gray' | 'white'> = {
+        [ImpactSeverity.CRITICAL]: 'red',
+        [ImpactSeverity.HIGH]: 'yellow',
+        [ImpactSeverity.MEDIUM]: 'yellow',
+        [ImpactSeverity.LOW]: 'blue',
+        [ImpactSeverity.INFO]: 'gray',
+      };
+
+      const emoji = riskEmoji[analysis.riskAssessment.overall] || '⚪';
+      const color = riskColor[analysis.riskAssessment.overall] || 'white';
+
+      console.log(chalk.bold(`Risk Assessment: ${emoji} ${chalk[color](analysis.riskAssessment.overall.toUpperCase())} (score: ${analysis.riskAssessment.score}/100)`));
+      
+      // Count by severity
+      const criticalCount = [...analysis.directImpacts, ...analysis.transitiveImpacts].filter(
+        (i: any) => i.severity === ImpactSeverity.CRITICAL
+      ).length;
+      const highCount = [...analysis.directImpacts, ...analysis.transitiveImpacts].filter(
+        (i: any) => i.severity === ImpactSeverity.HIGH
+      ).length;
+      const mediumCount = [...analysis.directImpacts, ...analysis.transitiveImpacts].filter(
+        (i: any) => i.severity === ImpactSeverity.MEDIUM
+      ).length;
+
+      if (criticalCount > 0 || highCount > 0 || mediumCount > 0) {
+        const parts = [];
+        if (criticalCount > 0) parts.push(`${criticalCount} critical`);
+        if (highCount > 0) parts.push(`${highCount} high`);
+        if (mediumCount > 0) parts.push(`${mediumCount} medium`);
+        console.log(parts.join(', ') + ' impacts');
+      }
+      console.log();
+
+      // Direct impacts
+      if (analysis.directImpacts.length > 0) {
+        console.log(chalk.bold(`Direct Impacts (${analysis.directImpacts.length}):`));
+        for (const impact of analysis.directImpacts.slice(0, 10)) {
+          const impactEmoji = riskEmoji[impact.severity] || '⚪';
+          const impactColor = riskColor[impact.severity] || 'white';
+          console.log(`  ${impactEmoji} ${chalk[impactColor](impact.node.name)} (${impact.severity.toUpperCase()}) - ${impact.node.file}:${impact.node.line}`);
+          console.log(chalk.dim(`     ${impact.reason}`));
+          console.log();
+        }
+        if (analysis.directImpacts.length > 10) {
+          console.log(chalk.dim(`  ... and ${analysis.directImpacts.length - 10} more`));
+          console.log();
+        }
+      }
+
+      // Transitive impacts
+      if (analysis.transitiveImpacts.length > 0) {
+        console.log(chalk.bold(`Transitive Impacts (${analysis.transitiveImpacts.length}):`));
+        for (const impact of analysis.transitiveImpacts.slice(0, 10)) {
+          const impactEmoji = riskEmoji[impact.severity] || '⚪';
+          const impactColor = riskColor[impact.severity] || 'white';
+          console.log(`  ${impactEmoji} ${chalk[impactColor](impact.node.name)} (${impact.severity.toUpperCase()}) - ${impact.node.file}:${impact.node.line}`);
+          console.log(chalk.dim(`     ${impact.reason}`));
+          console.log();
+        }
+        if (analysis.transitiveImpacts.length > 10) {
+          console.log(chalk.dim(`  ... and ${analysis.transitiveImpacts.length - 10} more`));
+          console.log();
+        }
+      }
+
+      // Affected files
+      if (analysis.affectedFiles.length > 0) {
+        console.log(chalk.bold(`Affected Files (${analysis.affectedFiles.length}):`));
+        for (const affectedFile of analysis.affectedFiles.slice(0, 10)) {
+          const fileEmoji = riskEmoji[affectedFile.highestSeverity] || '⚪';
+          const fileColor = riskColor[affectedFile.highestSeverity] || 'white';
+          console.log(`  • ${affectedFile.file} (${chalk[fileColor](affectedFile.highestSeverity.toUpperCase())}, ${affectedFile.impactedNodes.length} node${affectedFile.impactedNodes.length === 1 ? '' : 's'})`);
+        }
+        if (analysis.affectedFiles.length > 10) {
+          console.log(chalk.dim(`  ... and ${analysis.affectedFiles.length - 10} more`));
+        }
+        console.log();
+      }
+
+      // Affected tests
+      if (analysis.affectedTests.length > 0) {
+        console.log(chalk.bold(`Affected Tests (${analysis.affectedTests.length}):`));
+        
+        // Group by file
+        const testsByFile = new Map<string, any[]>();
+        for (const test of analysis.affectedTests) {
+          const file = test.node.file;
+          if (!testsByFile.has(file)) {
+            testsByFile.set(file, []);
+          }
+          testsByFile.get(file)!.push(test);
+        }
+
+        for (const [file, tests] of Array.from(testsByFile.entries()).slice(0, 5)) {
+          console.log(`  • ${file} (${tests.length} test${tests.length === 1 ? '' : 's'})`);
+        }
+        if (testsByFile.size > 5) {
+          console.log(chalk.dim(`  ... and ${testsByFile.size - 5} more files`));
+        }
+        console.log();
+      }
+
+      // Stats
+      console.log(chalk.dim(`Analysis completed in ${analysis.stats.analysisTimeMs}ms`));
+    }
+  } catch (error) {
+    spinner.fail('Analysis failed');
     console.error(chalk.red(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`));
     process.exit(1);
   }

@@ -127,7 +127,7 @@ describe('Error Recovery Flow Tests', () => {
       // Last known tokens should be visible
       expect(screen.getByText(/5000/)).toBeInTheDocument();
       // Offline indicator
-      expect(screen.getByText(/offline/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/offline/i).length).toBeGreaterThan(0);
     });
   });
   

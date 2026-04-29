@@ -45,3 +45,43 @@ export {
   Decision,
   LearnedPattern,
 } from './config';
+
+export {
+  SearchResultType,
+  GraphContextInfo,
+  SearchResult,
+  SearchQuery,
+  SearchResponse,
+  SearchState,
+  SearchGraphLink,
+} from './search';
+
+export {
+  CodeReference,
+  ChatMessage,
+  ChatSession,
+  ChatCommand,
+  StreamChunk,
+  ChatState,
+  ChatSearchIntegration,
+} from './chat';
+
+export {
+  ImpactSeverity,
+  ImpactEdge,
+  ImpactNode,
+  RiskAssessment,
+  AffectedFile,
+  ImpactStats,
+  ImpactAnalysis,
+  ImpactState,
+} from './impact';
+
+export {
+  CommandCategory,
+  CommandContext,
+  PaletteCommand,
+  PaletteMatch,
+  PaletteState,
+  CommandResult,
+} from './palette';

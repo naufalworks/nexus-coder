@@ -57,6 +57,7 @@ export const ReasoningLog: React.FC<ReasoningLogProps> = ({ log, filter, onJumpT
             value={agentFilter} 
             onChange={(e) => setAgentFilter(e.target.value)}
             className="agent-filter"
+            aria-label="Filter by agent name"
           >
             <option value="">All Agents</option>
             {uniqueAgents.map(agent => (
@@ -76,7 +77,7 @@ export const ReasoningLog: React.FC<ReasoningLogProps> = ({ log, filter, onJumpT
         {filteredLog.length === 0 ? (
           <div className="no-entries">No log entries found</div>
         ) : (
-          <ul>
+          <ul aria-label="Agent reasoning log entries">
             {filteredLog.map((m, i) => (
               <li key={i} className="log-entry">
                 <div className="log-entry-header">

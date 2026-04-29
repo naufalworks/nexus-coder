@@ -93,7 +93,7 @@ describe('E2E: Task creation through approval journey', () => {
       // Verify initial state
       expect(screen.getByTestId('task-panel')).toBeInTheDocument();
       expect(screen.getByTestId('diff-approval')).toBeInTheDocument();
-      expect(screen.getByText(currentTask.instruction)).toBeInTheDocument();
+      expect(screen.getAllByText(currentTask.instruction).length).toBeGreaterThan(0);
       
       // Step 2: Task appears in Task_Panel
       await waitFor(() => {

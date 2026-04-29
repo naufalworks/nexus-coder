@@ -163,7 +163,7 @@ describe('Security: Widget Rendering', () => {
     it('should show token usage, not actual tokens', () => {
       render(
         <ResourceFooter
-          tokenUsage={{ prompt: 1000, completion: 500, total: 1500, estimatedCost: 0.03 }}
+          tokenUsage={makeTokenUsage({ total: 1500, estimatedCost: 0.03 })}
           vectorStoreStatus="healthy"
         />
       );

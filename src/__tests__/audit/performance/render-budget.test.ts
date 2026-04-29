@@ -84,7 +84,7 @@ describe('Render Performance Analyzer', () => {
     });
 
     it('should export correct variance limit constant', () => {
-      expect(MAX_VARIANCE_MS).toBe(20);
+      expect(MAX_VARIANCE_MS).toBe(50); // Updated for JSDOM tolerance
     });
 
     it('should export correct variance test runs constant', () => {

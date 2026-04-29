@@ -7,3 +7,7 @@ export * from './ReasoningLog';
 export * from './InContextActions';
 export * from './AgentStatus';
 export * from './ResourceFooter';
+export * from './ImpactAnalysis';
+export * from './CommandPalette';
+export * from './SemanticSearch';
+export * from './AgentChat';

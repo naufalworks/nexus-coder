@@ -180,7 +180,7 @@ describe('E2E: Error recovery journey', () => {
       
       // Should show last known token count
       expect(screen.getByText(/5000/)).toBeInTheDocument();
-      expect(screen.getByText(/offline/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/offline/i).length).toBeGreaterThan(0);
     });
   });
   

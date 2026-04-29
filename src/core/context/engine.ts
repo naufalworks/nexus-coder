@@ -178,6 +178,14 @@ export class ContextEngine {
     return this.graph;
   }
 
+  getVectorStore(): VectorStore {
+    return this.vectorStore;
+  }
+
+  getTraversal(): GraphTraversal | null {
+    return this.traversal;
+  }
+
   getPersistentMemory(): PersistentMemory {
     return this.persistentMemory;
   }
@@ -230,6 +238,19 @@ export class ContextEngine {
     }
 
     return Array.from(found.values());
+  }
+
+  async getFileContent(filePath: string): Promise<string> {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    
+    try {
+      const content = await fs.readFile(filePath, 'utf-8');
+      return content;
+    } catch (error) {
+      logger.error(`[ContextEngine] Failed to read file ${filePath}: ${error}`);
+      throw new Error(`Failed to read file: ${filePath}`);
+    }
   }
 
   private extractKeywords(task: string): string[] {

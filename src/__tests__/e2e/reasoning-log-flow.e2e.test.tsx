@@ -59,20 +59,18 @@ describe('E2E: Reasoning log journey', () => {
         makeAgentMessage({ agent: 'agent-architect', content: 'Architect message 1' }),
       ];
       
-      const { container } = render(
+      render(
         <ReasoningLog
           log={messages}
           onJumpToCode={jest.fn()}
         />
       );
       
-      // Find agent filter input
-      const agentFilter = screen.getByPlaceholderText(/filter.*agent/i) 
-        || screen.getByLabelText(/agent/i)
-        || container.querySelector('input[type="text"]');
+      // Find agent filter dropdown (select element with class 'agent-filter')
+      const agentFilter = screen.getByRole('combobox') as HTMLSelectElement;
       
       if (agentFilter) {
-        // Filter by 'coder'
+        // Filter by 'agent-coder'
         await act(async () => {
           fireEvent.change(agentFilter, { target: { value: 'agent-coder' } });
         });
@@ -212,7 +210,8 @@ describe('E2E: Reasoning log journey', () => {
         />
       );
       
-      expect(screen.getByText(/agent-coder/i)).toBeInTheDocument();
+      // Agent name should be in the log entry (as strong.agent-name)
+      expect(screen.getAllByText(/agent-coder/i).length).toBeGreaterThan(0);
     });
   });
   

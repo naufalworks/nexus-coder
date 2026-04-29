@@ -52,7 +52,7 @@ describe('Integration: Agent Status Dashboard to Task Panel', () => {
       );
       
       // Verify agent assignment is shown
-      expect(screen.getByText(/agent-coder/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/agent-coder/i).length).toBeGreaterThan(0);
     });
     
     it('should update Task_Panel when agent status changes', async () => {
@@ -128,7 +128,7 @@ describe('Integration: Agent Status Dashboard to Task Panel', () => {
       expect(readiness).toBe('busy');
       
       // TaskPanel shows agent assignment
-      expect(screen.getByText(/agent-coder/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/agent-coder/i).length).toBeGreaterThan(0);
     });
     
     it('should not require page reload for agent status updates', async () => {

@@ -52,39 +52,42 @@ exports[`Visual Regression: Widget Snapshots Requirement 6.2: Pixel diff detecti
     >
       <li
         class="task-item"
-        data-task-id="task-t9yc93z"
+        data-task-id="task-snapshot-test"
         data-task-status="awaiting_approval"
-        role="button"
-        tabindex="0"
       >
-        <div
-          class="task-header"
+        <button
+          aria-label="Task: Test task instruction, Status: awaiting_approval"
+          class="task-item-button"
         >
-          <span
-            class="task-instruction"
+          <div
+            class="task-header"
           >
-            Test task instruction
-          </span>
-          <span
-            class="task-status status-awaiting_approval"
+            <span
+              class="task-instruction"
+            >
+              Test task instruction
+            </span>
+            <span
+              class="task-status status-awaiting_approval"
+            >
+              awaiting_approval
+            </span>
+          </div>
+          <div
+            class="task-agents"
+          />
+          <div
+            class="task-affected-files"
           >
-            awaiting_approval
-          </span>
-        </div>
-        <div
-          class="task-agents"
-        />
-        <div
-          class="task-affected-files"
-        >
-          <span
-            class="task-files"
-            data-files="src/file0.ts"
-          >
-            Files: 
-            src/file0.ts
-          </span>
-        </div>
+            <span
+              class="task-files"
+              data-files="src/file0.ts"
+            >
+              Files: 
+              src/file0.ts
+            </span>
+          </div>
+        </button>
       </li>
     </ul>
   </div>
